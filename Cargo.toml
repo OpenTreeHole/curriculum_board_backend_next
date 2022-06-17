@@ -6,4 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# 服务器框架
 actix-web = "4"
+# ORM 支持。本地开发别忘了装 cargo install sea-orm-cli
+sea-orm = { version = "0.8.0", features = ["sqlx-mysql", "runtime-actix-native-tls", "macros"] }
