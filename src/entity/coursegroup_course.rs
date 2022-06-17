@@ -5,7 +5,9 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "coursegroup_course")]
 pub struct Model {
+    #[sea_orm(primary_key)]
     pub coursegroup_id: i32,
+    #[sea_orm(primary_key)]
     pub course_id: i32,
 }
 
