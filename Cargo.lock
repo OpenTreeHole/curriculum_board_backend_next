@@ -534,6 +534,8 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "sea-orm",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

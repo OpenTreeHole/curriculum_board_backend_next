@@ -10,3 +10,6 @@ edition = "2021"
 actix-web = "4"
 # ORM 支持。本地开发别忘了装 cargo install sea-orm-cli
 sea-orm = { version = "0.8.0", features = ["sqlx-mysql", "runtime-actix-native-tls", "macros"] }
+# JSON 支持
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
