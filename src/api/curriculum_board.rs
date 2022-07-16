@@ -6,7 +6,7 @@ use crate::api::auth::require_authentication;
 use crate::api::error_handler::{ErrorMessage, internal_server_error, not_found};
 use crate::entity::prelude::*;
 use sea_orm::QueryTrait;
-use crate::CourseGroup::GetSingleCourseGroup;
+use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup};
 use crate::entity::{course, coursegroup};
 use sea_orm::ModelTrait;
 use crate::entity::course::GetSingleCourse;
@@ -23,10 +23,16 @@ pub async fn get_course_groups(req: HttpRequest, db: web::Data<DatabaseConnectio
         return e;
     }
 
-    let result: Result<Vec<Value>, DbErr> =
-        Coursegroup::find().into_json().all(db.get_ref()).await;
+    let result: Result<Vec<(coursegroup::Model, Vec<course::Model>)>, DbErr> =
+        Coursegroup::find().find_with_related(Course).all(db.get_ref()).await;
     match result {
-        Ok(groups) => HttpResponse::Ok().json(groups),
+        Ok(groups) => {
+            let mut group_list: Vec<GetMultiCourseGroup> = vec![];
+            for x in groups {
+                group_list.push(GetMultiCourseGroup::new(x.0, x.1));
+            }
+            HttpResponse::Ok().json(group_list)
+        }
         Err(e) => internal_server_error(e.to_string())
     }
 }
@@ -58,6 +64,6 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
                 Err(e) => internal_server_error(e.to_string())
             }
         }
-        Err(e) => HttpResponse::BadRequest().json(ErrorMessage { message: "Invalid id syntax.".to_string() })
+        Err(_) => HttpResponse::BadRequest().json(ErrorMessage { message: "Invalid id syntax.".to_string() })
     }
 }

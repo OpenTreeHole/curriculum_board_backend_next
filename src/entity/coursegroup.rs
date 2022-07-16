@@ -35,6 +35,7 @@ impl Related<super::course::Entity> for Entity {
         Some(super::coursegroup_course::Relation::Coursegroup.def().rev())
     }
 }
+
 impl From<Model> for GetSingleCourseGroup {
     fn from(model: Model) -> Self {
         GetSingleCourseGroup {
@@ -61,6 +62,37 @@ pub struct GetSingleCourseGroup {
 impl GetSingleCourseGroup {
     pub fn new(model: Model, course_list: Vec<GetSingleCourse>) -> GetSingleCourseGroup {
         let mut group: GetSingleCourseGroup = model.into();
+        group.course_list = course_list;
+        group
+    }
+}
+
+impl From<Model> for GetMultiCourseGroup {
+    fn from(model: Model) -> Self {
+        GetMultiCourseGroup {
+            id: model.id,
+            name: model.name,
+            code: model.code,
+            department: model.department,
+            campus_name: model.campus_name,
+            course_list: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GetMultiCourseGroup {
+    pub id: i32,
+    pub name: String,
+    pub code: String,
+    pub department: String,
+    pub campus_name: String,
+    pub course_list: Vec<course::Model>,
+}
+
+impl GetMultiCourseGroup {
+    pub fn new(model: Model, course_list: Vec<course::Model>) -> GetMultiCourseGroup {
+        let mut group: GetMultiCourseGroup = model.into();
         group.course_list = course_list;
         group
     }
