@@ -18,11 +18,6 @@ pub async fn hello() -> impl Responder {
 
 #[get("/courses")]
 pub async fn get_course_groups(req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
-    let user_info = require_authentication(&req).await;
-    if let Err(e) = user_info {
-        return e;
-    }
-
     let result: Result<Vec<(coursegroup::Model, Vec<course::Model>)>, DbErr> =
         Coursegroup::find().find_with_related(Course).all(db.get_ref()).await;
     match result {

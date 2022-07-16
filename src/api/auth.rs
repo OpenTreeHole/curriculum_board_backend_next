@@ -6,7 +6,7 @@ use if_chain::if_chain;
 use lazy_static::lazy_static;
 use moka::future::Cache;
 use reqwest::{Error, Response};
-use crate::api::error_handler::ErrorMessage;
+use crate::api::error_handler::{ErrorMessage, internal_server_error};
 use crate::constant;
 use serde::Deserialize;
 
@@ -38,7 +38,7 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
                 GLOBAL_USER_CACHE.insert(header, user).await;
                 Ok(user)
             } else {
-                Err(HttpResponse::InternalServerError().json(ErrorMessage { message: "Internal Error: Cannot validate authorization information.".to_string() }))
+                Err(internal_server_error("Internal Error: Cannot validate authorization information.".to_string()))
             }
         }
         Err(e) => {
@@ -47,7 +47,7 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
                     return Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Failed.".to_string() }));
                 }
             }
-            Err(HttpResponse::InternalServerError().json(ErrorMessage { message: "Internal Error: Cannot validate authorization information.".to_string() }))
+            Err(internal_server_error("Internal Error: Cannot validate authorization information.".to_string()))
         }
     }
 }
