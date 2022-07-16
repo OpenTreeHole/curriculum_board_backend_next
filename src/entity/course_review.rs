@@ -31,16 +31,5 @@ pub enum Relation {
     Review,
 }
 
-impl Related<super::course::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Course.def()
-    }
-}
-
-impl Related<super::review::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Review.def()
-    }
-}
 
 impl ActiveModelBehavior for ActiveModel {}

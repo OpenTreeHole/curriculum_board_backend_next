@@ -16,31 +16,15 @@ pub enum Relation {
     #[sea_orm(
         belongs_to = "super::coursegroup::Entity",
         from = "Column::CoursegroupId",
-        to = "super::coursegroup::Column::Id",
-        on_update = "NoAction",
-        on_delete = "Cascade"
+        to = "super::coursegroup::Column::Id"
     )]
     Coursegroup,
     #[sea_orm(
         belongs_to = "super::course::Entity",
         from = "Column::CourseId",
-        to = "super::course::Column::Id",
-        on_update = "NoAction",
-        on_delete = "Cascade"
+        to = "super::course::Column::Id"
     )]
     Course,
-}
-
-impl Related<super::coursegroup::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Coursegroup.def()
-    }
-}
-
-impl Related<super::course::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Course.def()
-    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

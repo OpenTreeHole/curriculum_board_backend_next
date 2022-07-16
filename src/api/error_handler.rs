@@ -6,3 +6,11 @@ use serde::{Serialize, Deserialize};
 pub struct ErrorMessage {
     pub(crate) message: String,
 }
+
+pub fn internal_server_error(error: String) -> HttpResponse {
+    HttpResponse::InternalServerError().json(ErrorMessage { message: error })
+}
+
+pub fn not_found(error: String) -> HttpResponse {
+    HttpResponse::NotFound().json(ErrorMessage { message: error })
+}

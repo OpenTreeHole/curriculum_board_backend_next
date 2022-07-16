@@ -12,7 +12,8 @@ use sea_orm::EntityTrait;
 
 fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(curriculum_board::hello)
-        .service(curriculum_board::get_course_groups);
+        .service(curriculum_board::get_course_groups)
+        .service(curriculum_board::get_course_group);
 }
 
 #[actix_web::main]

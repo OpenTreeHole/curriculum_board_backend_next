@@ -24,7 +24,7 @@ lazy_static::lazy_static! {
 }
 
 async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
-    let header=header.to_string();
+    let header = header.to_string();
     let cached_value = GLOBAL_USER_CACHE.get(&header);
     if let Some(info) = cached_value {
         return Ok(info);
@@ -43,13 +43,11 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
         }
         Err(e) => {
             if let Some(status_code) = e.status() {
-                match status_code {
-                    StatusCode::UNAUTHORIZED => Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Failed.".to_string() })),
-                    _ => Err(HttpResponse::InternalServerError().json(ErrorMessage { message: "Internal Error: Cannot validate authorization information.".to_string() }))
+                if status_code == StatusCode::UNAUTHORIZED {
+                    return Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Failed.".to_string() }));
                 }
-            } else {
-                Err(HttpResponse::InternalServerError().json(ErrorMessage { message: "Internal Error: Cannot validate authorization information.".to_string() }))
             }
+            Err(HttpResponse::InternalServerError().json(ErrorMessage { message: "Internal Error: Cannot validate authorization information.".to_string() }))
         }
     }
 }
