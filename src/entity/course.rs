@@ -107,4 +107,19 @@ pub struct GetSingleCourse {
     pub review_list: Vec<GetReview>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, DeriveIntoActiveModel)]
+pub struct NewCourse {
+    pub name: String,
+    pub code: String,
+    pub code_id: String,
+    pub credit: f64,
+    pub department: String,
+    pub campus_name: String,
+    pub teachers: String,
+    pub max_student: i32,
+    pub week_hour: i32,
+    pub year: i32,
+    pub semester: i32,
+}
+
 impl ActiveModelBehavior for ActiveModel {}

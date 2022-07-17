@@ -1,14 +1,12 @@
 use std::num::ParseIntError;
 use actix_web::{get, post, HttpResponse, Responder, web, HttpRequest};
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::{ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel};
 use serde_json::Value;
-use crate::api::auth::require_authentication;
+use crate::api::auth::{require_authentication, UserInfo};
 use crate::api::error_handler::{ErrorMessage, internal_server_error, not_found};
 use crate::entity::prelude::*;
-use sea_orm::QueryTrait;
-use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup};
-use crate::entity::{course, coursegroup};
-use sea_orm::ModelTrait;
+use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
+use crate::entity::{course, coursegroup, coursegroup_course};
 use crate::entity::course::GetSingleCourse;
 
 #[get("/")]
@@ -39,7 +37,6 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
         return e;
     }
     let user_info = user_info.unwrap();
-
     let group_id = req.match_info().query("group_id").parse::<i32>();
     match group_id {
         Ok(group_id) => {
@@ -69,5 +66,51 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
             }
         }
         Err(_) => HttpResponse::BadRequest().json(ErrorMessage { message: "Invalid id syntax.".to_string() })
+    }
+}
+
+#[post("/courses")]
+pub async fn add_course(new_course: web::Json<course::NewCourse>, db: web::Data<DatabaseConnection>) -> impl Responder {
+    let user_info = require_authentication(&req).await;
+    if let Err(e) = user_info {
+        return e;
+    }
+    if !user_info.unwrap().is_admin {
+        return HttpResponse::Unauthorized().json(ErrorMessage { message: "Only admin can add new course".to_string() });
+    }
+    let group: Result<Option<coursegroup::Model>, DbErr> =
+        Coursegroup::find().filter(coursegroup::Column::Code.eq(new_course.code.clone())).one(db.get_ref()).await;
+    let new_course = new_course.into_inner();
+    match group {
+        Err(e) => internal_server_error(e.to_string()),
+        Ok(group) => {
+            let mut group_id: i32 = 0;
+            if group.is_none() {
+                // 创建新的 CourseGroup
+                let new_course_group: NewCourseGroup = new_course.clone().into();
+                let new_course_group: Result<coursegroup::Model, DbErr> =
+                    new_course_group.into_active_model().insert(db.get_ref()).await;
+                if let Err(e) = new_course_group {
+                    return internal_server_error(format!("Unable to create new course group. Error: {}", e.to_string()));
+                }
+                group_id = new_course_group.unwrap().id;
+            } else {
+                group_id = group.unwrap().id;
+            }
+            // 创建新的 Course
+            let new_course: Result<course::Model, DbErr> =
+                new_course.into_active_model().insert(db.get_ref()).await;
+            if let Err(e) = new_course {
+                return internal_server_error(format!("Unable to create new course. Error: {}", e.to_string()));
+            }
+            let new_course = new_course.unwrap();
+
+            // 连接两者
+            if let Err(e) = coursegroup_course::link(group_id, new_course.id, db.get_ref()).await {
+                return internal_server_error(format!("Unable to link between course and course group. Error: {}", e.to_string()));
+            }
+
+            HttpResponse::Ok().json(GetSingleCourse::from(new_course))
+        }
     }
 }
