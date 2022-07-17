@@ -4,9 +4,10 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ErrorMessage {
-    pub(crate) message: String,
+    pub message: String,
 }
 
+// 预定义了一些常用的错误信息。
 pub fn internal_server_error(error: String) -> HttpResponse {
     HttpResponse::InternalServerError().json(ErrorMessage { message: error })
 }

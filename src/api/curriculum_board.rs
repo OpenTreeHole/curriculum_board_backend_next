@@ -38,6 +38,8 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
     if let Err(e) = user_info {
         return e;
     }
+    let user_info = user_info.unwrap();
+
     let group_id = req.match_info().query("group_id").parse::<i32>();
     match group_id {
         Ok(group_id) => {
@@ -45,13 +47,20 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
             match result {
                 Ok(group) => {
                     if group.is_empty() {
-                        return not_found(format!("Coursegroup with id {} is not found", group_id));
+                        return not_found(format!("Course group with id {} is not found", group_id));
                     }
                     // 载入课程的评论列表
                     let group_and_courses = &group[0];
                     let mut course_list: Vec<GetSingleCourse> = vec![];
                     for x in &group_and_courses.1 {
-                        course_list.push(GetSingleCourse::load(x.clone(), db.get_ref()).await.unwrap());
+                        match GetSingleCourse::load(x.clone(), db.get_ref(), user_info.id).await {
+                            Ok(loaded_course) => {
+                                course_list.push(loaded_course);
+                            }
+                            Err(e) => {
+                                return internal_server_error(format!("Unable to load course group with id {}. Error: {}", group_id, e.to_string()));
+                            }
+                        }
                     }
 
                     HttpResponse::Ok().json(GetSingleCourseGroup::new(group_and_courses.0.clone(), course_list))

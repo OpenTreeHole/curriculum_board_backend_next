@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt::format;
 use actix_web::http::header::HeaderValue;
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use actix_web::http::StatusCode;
@@ -13,8 +14,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub struct UserInfo {
-    id: i64,
-    is_admin: bool,
+    pub id: i32,
+    pub is_admin: bool,
 }
 
 lazy_static::lazy_static! {
@@ -34,6 +35,9 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
         client.get(env::var(constant::ENV_USER_VERIFICATION_ADDRESS).unwrap()).header("Authorization", &header).send().await;
     match result {
         Ok(response) => {
+            if response.status() == StatusCode::UNAUTHORIZED {
+                return Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Failed.".to_string() }));
+            }
             if let Ok(user) = response.json::<UserInfo>().await {
                 GLOBAL_USER_CACHE.insert(header, user).await;
                 Ok(user)
@@ -41,14 +45,8 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
                 Err(internal_server_error("Internal Error: Cannot validate authorization information.".to_string()))
             }
         }
-        Err(e) => {
-            if let Some(status_code) = e.status() {
-                if status_code == StatusCode::UNAUTHORIZED {
-                    return Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Failed.".to_string() }));
-                }
-            }
-            Err(internal_server_error("Internal Error: Cannot validate authorization information.".to_string()))
-        }
+        Err(e) =>
+            Err(internal_server_error(format!("Internal Error: Cannot validate authorization information. Error: {}", e.to_string())))
     }
 }
 

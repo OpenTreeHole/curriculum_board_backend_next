@@ -5,6 +5,7 @@ use crate::entity::review;
 use serde::{Deserialize, Serialize};
 use sea_orm::FromQueryResult;
 use sea_orm::ModelTrait;
+use crate::entity::review::GetReview;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
 #[sea_orm(table_name = "course")]
@@ -77,13 +78,16 @@ impl From<Model> for GetSingleCourse {
 }
 
 impl GetSingleCourse {
-    pub async fn load(model: Model, db: &DatabaseConnection) -> Result<Self, DbErr> {
-        let review_list: Vec<review::Model> = model.find_related(review::Entity).all(db).await?;
+    pub async fn load(model: Model, db: &DatabaseConnection, user_id: i32) -> Result<Self, DbErr> {
+        let review_raw_list: Vec<review::Model> = model.find_related(review::Entity).all(db).await?;
         let mut course: Self = model.into();
+        let mut review_list: Vec<GetReview> = vec![];
+        for review in review_raw_list {
+            review_list.push(GetReview::new(review, user_id));
+        }
         course.review_list = review_list;
         Ok(course)
     }
-
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -100,7 +104,7 @@ pub struct GetSingleCourse {
     pub week_hour: i32,
     pub year: i32,
     pub semester: i32,
-    pub review_list: Vec<review::Model>,
+    pub review_list: Vec<GetReview>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
