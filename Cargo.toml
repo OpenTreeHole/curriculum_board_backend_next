@@ -23,3 +23,5 @@ reqwest = { version = "0.11.11", features = ["json"] }
 moka = { version = "0.9.0", features = ["future"] }
 # 全局变量
 lazy_static = "1.4.0"
+# 日期时间支持
+chrono = "0.4.19"

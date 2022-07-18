@@ -655,6 +655,7 @@ name = "curriculum_board_backend"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "chrono",
  "dotenv",
  "if_chain",
  "lazy_static",

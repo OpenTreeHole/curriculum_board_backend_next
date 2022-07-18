@@ -1,13 +1,16 @@
 use std::num::ParseIntError;
-use actix_web::{get, post, HttpResponse, Responder, web, HttpRequest};
+use actix_web::{get, post, put, HttpResponse, Responder, web, HttpRequest};
 use sea_orm::{ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel};
-use serde_json::Value;
+use sea_orm::ActiveValue::Set;
+use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication, UserInfo};
 use crate::api::error_handler::{ErrorMessage, internal_server_error, not_found};
 use crate::entity::prelude::*;
 use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
-use crate::entity::{course, coursegroup, coursegroup_course};
+use crate::entity::{course, coursegroup, coursegroup_course, review};
 use crate::entity::course::GetSingleCourse;
+use crate::entity::review::{GetReview, HistoryReview, NewReview};
+use chrono::Local;
 
 #[get("/")]
 pub async fn hello() -> impl Responder {
@@ -44,7 +47,7 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
             match result {
                 Ok(group) => {
                     if group.is_empty() {
-                        return not_found(format!("Course group with id {} is not found", group_id));
+                        return not_found(format!("Course group with id {} is not found.", group_id));
                     }
                     // 载入课程的评论列表
                     let group_and_courses = &group[0];
@@ -70,7 +73,7 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
 }
 
 #[post("/courses")]
-pub async fn add_course(new_course: web::Json<course::NewCourse>, db: web::Data<DatabaseConnection>) -> impl Responder {
+pub async fn add_course(new_course: web::Json<course::NewCourse>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
     let user_info = require_authentication(&req).await;
     if let Err(e) = user_info {
         return e;
@@ -112,5 +115,87 @@ pub async fn add_course(new_course: web::Json<course::NewCourse>, db: web::Data<
 
             HttpResponse::Ok().json(GetSingleCourse::from(new_course))
         }
+    }
+}
+
+#[get("/courses/{course_id}")]
+pub async fn get_course(req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    let user_info = require_authentication(&req).await;
+    if let Err(e) = user_info {
+        return e;
+    }
+    let user_info = user_info.unwrap();
+    let course_id = req.match_info().query("course_id").parse::<i32>();
+    match course_id {
+        Ok(course_id) => {
+            let result: Result<Vec<course::Model>, DbErr> = Course::find_by_id(course_id).all(db.get_ref()).await;
+            match result {
+                Ok(course) => {
+                    if course.is_empty() {
+                        return not_found(format!("Course with id {} is not found.", course_id));
+                    }
+                    // 载入课程的评论列表
+                    match GetSingleCourse::load(course[0].clone(), db.get_ref(), user_info.id).await {
+                        Ok(loaded_course) => {
+                            HttpResponse::Ok().json(loaded_course)
+                        }
+                        Err(e) => {
+                            internal_server_error(format!("Unable to load course with id {}. Error: {}", course_id, e.to_string()))
+                        }
+                    }
+                }
+                Err(e) => internal_server_error(e.to_string())
+            }
+        }
+        Err(_) => HttpResponse::BadRequest().json(ErrorMessage { message: "Invalid id syntax.".to_string() })
+    }
+}
+
+#[put("/reviews/{review_id}")]
+pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    let user_info = require_authentication(&req).await;
+    if let Err(e) = user_info {
+        return e;
+    }
+    let user_info = user_info.unwrap();
+    let new_review = new_review.into_inner();
+    let review_id = req.match_info().query("review_id").parse::<i32>();
+    match review_id {
+        Ok(review_id) => {
+            let result: Result<Vec<review::Model>, DbErr> = Review::find_by_id(review_id).all(db.get_ref()).await;
+            match result {
+                Ok(review) => {
+                    if review.is_empty() {
+                        return not_found(format!("Review with id {} is not found.", review_id));
+                    }
+                    let review = &review[0];
+                    if review.reviewer_id != user_info.id && !user_info.is_admin {
+                        return HttpResponse::Unauthorized().json(ErrorMessage { message: "You have no permission to modify this review!".to_string() });
+                    }
+
+                    // 储存目前的 Review
+                    let snapshot = serde_json::to_value(&review.clone().into() as &HistoryReview).unwrap();
+
+                    let mut history = (*review.history.as_array().unwrap()).clone();
+                    history.push(json!({
+                        "alter_by":user_info.id,
+                        "time": Local::now().naive_utc(),
+                        "original": snapshot
+                    }));
+                    //更新字段
+                    let mut updated_review: review::ActiveModel = review.clone().into();
+                    updated_review.history = Set(Value::Array(history));
+                    updated_review.update_with(new_review);
+                    let updated_review: Result<review::Model, DbErr> = updated_review.update(db.get_ref()).await;
+
+                    match updated_review {
+                        Ok(updated_review) => HttpResponse::Ok().json(GetReview::new(updated_review, user_info.id)),
+                        Err(err) => internal_server_error(format!("Unable to update the review. Error: {}", err.to_string()))
+                    }
+                }
+                Err(e) => internal_server_error(e.to_string())
+            }
+        }
+        Err(_) => HttpResponse::BadRequest().json(ErrorMessage { message: "Invalid id syntax.".to_string() })
     }
 }
