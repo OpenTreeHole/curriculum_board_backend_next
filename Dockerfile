@@ -13,6 +13,7 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 FROM scratch
 
 COPY --from=builder /backend/target/x86_64-unknown-linux-musl/release/curriculum_board_backend /backend
+COPY --from=builder /backend/static/ /static
 
 EXPOSE 11451
 

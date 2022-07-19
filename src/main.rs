@@ -4,6 +4,7 @@ mod constant;
 
 use std::env;
 use api::curriculum_board;
+use api::r#static;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware};
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
@@ -19,7 +20,8 @@ fn config(cfg: &mut web::ServiceConfig) {
         .service(curriculum_board::add_review)
         .service(curriculum_board::modify_review)
         .service(curriculum_board::vote_for_review)
-        .service(curriculum_board::get_reviews);
+        .service(curriculum_board::get_reviews)
+        .service(r#static::cedict);
 }
 
 #[actix_web::main]
