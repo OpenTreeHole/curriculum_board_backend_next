@@ -16,7 +16,9 @@ fn config(cfg: &mut web::ServiceConfig) {
         .service(curriculum_board::get_course_group)
         .service(curriculum_board::add_course)
         .service(curriculum_board::get_course)
-        .service(curriculum_board::modify_review);
+        .service(curriculum_board::add_review)
+        .service(curriculum_board::modify_review)
+        .service(curriculum_board::vote_for_review);
 }
 
 #[actix_web::main]

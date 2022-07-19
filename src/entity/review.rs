@@ -91,7 +91,7 @@ pub struct GetReview {
 }
 
 impl NewReview {
-    fn into_active_model(self, user_id: i32) -> ActiveModel {
+    pub fn into_active_model(self, user_id: i32) -> ActiveModel {
         let now = Local::now();
         ActiveModel {
             id: NotSet,
