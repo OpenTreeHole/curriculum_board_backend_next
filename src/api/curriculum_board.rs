@@ -8,7 +8,7 @@ use crate::entity::prelude::*;
 use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
 use crate::entity::{course, course_review, coursegroup, coursegroup_course, review};
 use crate::entity::course::GetSingleCourse;
-use crate::entity::review::{GetReview, HistoryReview, NewReview};
+use crate::entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 
@@ -317,5 +317,30 @@ pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db
             }
         }
         Err(_) => HttpResponse::BadRequest().json(ErrorMessage { message: "Invalid id syntax.".to_string() })
+    }
+}
+
+
+#[get("/reviews/me")]
+pub async fn get_reviews(req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    let user_info = require_authentication(&req).await;
+    if let Err(e) = user_info {
+        return e;
+    }
+    let user_info = user_info.unwrap();
+    let result: Result<Vec<(review::Model, Vec<course::Model>)>, DbErr> =
+        Review::find().filter(review::Column::ReviewerId.eq(user_info.id)).find_with_related(Course).all(db.get_ref()).await;
+    match result {
+        Ok(results) => {
+            let mut review_list: Vec<GetMyReview> = vec![];
+            for x in results {
+                let review = &x.0;
+                let course = &x.1[0];
+                review_list.push(GetMyReview::new(review.clone(), course.clone(), user_info.id))
+            }
+
+            HttpResponse::Ok().json(review_list)
+        }
+        Err(e) => internal_server_error(e.to_string())
     }
 }

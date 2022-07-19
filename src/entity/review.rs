@@ -8,6 +8,7 @@ use sea_orm::{IntoActiveModel, NotSet};
 use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use crate::entity::course;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
 #[sea_orm(table_name = "review")]
@@ -42,23 +43,28 @@ impl Related<super::course::Entity> for Entity {
     }
 }
 
+fn _calculate_votes(model: &Model, user_id: i32) -> (i32, i32, i32) {
+    let mut upvote: i32 = 0;
+    let mut downvote: i32 = 0;
+    let mut voted: i32 = 0;
+    if let Some(upvoters) = model.upvoters.as_array() {
+        upvote = upvoters.len() as i32;
+        if upvoters.contains(&json!(user_id)) {
+            voted = 1;
+        }
+    }
+    if let Some(downvoters) = model.downvoters.as_array() {
+        downvote = downvoters.len() as i32;
+        if downvoters.contains(&json!(user_id)) {
+            voted = -1;
+        }
+    }
+    (upvote, downvote, voted)
+}
+
 impl GetReview {
     pub fn new(model: Model, user_id: i32) -> Self {
-        let mut upvote: i32 = 0;
-        let mut downvote: i32 = 0;
-        let mut voted: i32 = 0;
-        if let Some(upvoters) = model.upvoters.as_array() {
-            upvote = upvoters.len() as i32;
-            if upvoters.contains(&json!(user_id)) {
-                voted = 1;
-            }
-        }
-        if let Some(downvoters) = model.downvoters.as_array() {
-            downvote = downvoters.len() as i32;
-            if downvoters.contains(&json!(user_id)) {
-                voted = -1;
-            }
-        }
+        let (upvote, downvote, voted) = _calculate_votes(&model, user_id);
         GetReview {
             id: model.id,
             title: model.title,
@@ -135,6 +141,38 @@ impl From<Model> for HistoryReview {
             rank: model.rank,
         }
     }
+}
+
+impl GetMyReview {
+    pub fn new(model: Model, course: course::Model, user_id: i32) -> Self {
+        let (upvote, downvote, voted) = _calculate_votes(&model, user_id);
+        GetMyReview {
+            id: model.id,
+            title: model.title,
+            content: model.content,
+            history: model.history,
+            time_created: model.time_created,
+            time_updated: model.time_updated,
+            rank: model.rank,
+            remark: upvote - downvote,
+            vote: voted,
+            course,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GetMyReview {
+    pub id: i32,
+    pub title: String,
+    pub content: String,
+    pub history: Json,
+    pub time_created: DateTime,
+    pub time_updated: DateTime,
+    pub rank: Json,
+    pub vote: i32,
+    pub remark: i32,
+    pub course: course::Model,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
