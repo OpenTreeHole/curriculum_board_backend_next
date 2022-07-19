@@ -34,7 +34,7 @@ async fn main() -> std::io::Result<()> {
             .configure(config)
             .app_data(web::Data::new(db.clone()))
     })
-        .bind(("127.0.0.1", 8080))?
+        .bind(("0.0.0.0", 11451))?
         .run()
         .await
 }
