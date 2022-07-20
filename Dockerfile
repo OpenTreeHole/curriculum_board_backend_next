@@ -1,7 +1,7 @@
 FROM rust:latest as builder
 # 要求 Rust 在 scratch 镜像下运行
 RUN rustup target add x86_64-unknown-linux-musl
-RUN apt update && apt install -y musl-tools musl-dev libssl-dev
+RUN apt update && apt install -y musl-tools musl-dev libssl-dev pkg-config
 RUN update-ca-certificates
 
 WORKDIR /backend
