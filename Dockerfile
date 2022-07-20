@@ -13,9 +13,11 @@ RUN rm -rf .env
 
 RUN cargo build --target x86_64-unknown-linux-musl --release
 
-FROM scratch
+FROM alpine:latest
 
-RUN apt update && apt install -y libssl-dev
+RUN  apk update \
+  && apk add openssl \
+  && rm -rf /var/cache/apk/*
 
 WORKDIR /backend
 COPY --from=builder /backend/target/x86_64-unknown-linux-musl/release/curriculum_board_backend .
