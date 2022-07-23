@@ -1,5 +1,6 @@
 use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest};
-use sea_orm::{ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel};
+use actix_web::middleware::Condition;
+use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, SelectModel, SelectorRaw, TryGetableMany};
 use sea_orm::ActiveValue::Set;
 use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication, UserInfo};
@@ -10,6 +11,7 @@ use crate::entity::{course, course_review, coursegroup, coursegroup_course, revi
 use crate::entity::course::GetSingleCourse;
 use crate::entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
 use chrono::Local;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 #[get("/")]
@@ -272,7 +274,7 @@ pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db
                     }
                     let review = &review[0];
 
-                    // 设置 *voters 列表
+                    // 复制并设置 *voters 列表
                     let mut upvoters = (*review.upvoters.as_array().unwrap()).clone();
                     let mut downvoters = (*review.downvoters.as_array().unwrap()).clone();
                     let up_pos = upvoters.iter().position(|upvoter_id| upvoter_id.as_i64().unwrap_or(-1) as i32 == user_info.id);
@@ -343,4 +345,41 @@ pub async fn get_reviews(req: HttpRequest, db: web::Data<DatabaseConnection>) ->
         }
         Err(e) => internal_server_error(e.to_string())
     }
+}
+
+#[derive(Debug, FromQueryResult)]
+pub struct Counts {
+    cnt: i32,
+}
+
+#[get("/reviews/random")]
+pub async fn get_random_reviews(req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    let user_info = require_authentication(&req).await;
+    if let Err(e) = user_info {
+        return e;
+    }
+    let user_info = user_info.unwrap();
+    let review_count: Result<Option<Counts>, DbErr> = Counts::find_by_statement(Statement::from_string(db.get_ref().get_database_backend(), r#"SELECT COUNT(*) AS cnt FROM review"#.to_string())).one(db.get_ref()).await;
+    if let Err(err) = review_count {
+        return internal_server_error(format!("Unable to count the reviews. Error: {}", err.to_string()));
+    }
+    let review_count = review_count.unwrap();
+    if let None = review_count {
+        return internal_server_error(format!("Unable to count the reviews since database returns no result."));
+    }
+    let review_count = review_count.unwrap().cnt;
+    let mut rng = rand::thread_rng();
+    // 重试 5 次
+    for _ in 1..5 {
+        let id = rng.gen_range(1..=review_count) as i32;
+        let result: Result<Vec<(review::Model, Vec<course::Model>)>, DbErr> =
+            Review::find_by_id(id).find_with_related(Course).all(db.get_ref()).await;
+        if let Ok(results) = result {
+            if !results.is_empty() {
+                let result = results.first().unwrap().clone();
+                return HttpResponse::Ok().json(GetMyReview::new(result.0, result.1.first().unwrap().clone(), user_info.id));
+            }
+        }
+    }
+    internal_server_error("Unable to fetch a random review. Retry later.".to_string())
 }

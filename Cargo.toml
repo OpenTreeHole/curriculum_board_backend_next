@@ -29,5 +29,7 @@ moka = { version = "0.9.0", features = ["future"] }
 lazy_static = "1.4.0"
 # 日期时间支持
 chrono = "0.4.19"
+# 随机数
+rand = "0.8.5"
 # OpenSSL 支持
 openssl = { version = "0.10.41", features = ["vendored"] }

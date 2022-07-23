@@ -23,6 +23,7 @@ fn config(cfg: &mut web::ServiceConfig) {
         .service(curriculum_board::modify_review)
         .service(curriculum_board::vote_for_review)
         .service(curriculum_board::get_reviews)
+        .service(curriculum_board::get_random_reviews)
         .service(r#static::cedict);
 }
 

@@ -16,7 +16,6 @@ WORKDIR /backend
 COPY --from=builder /backend/target/x86_64-unknown-linux-musl/release/curriculum_board_backend .
 COPY --from=builder /backend/static/cedict_ts.u8 ./static/
 
-
 EXPOSE 11451
 
 ENTRYPOINT ["/backend/curriculum_board_backend"]
