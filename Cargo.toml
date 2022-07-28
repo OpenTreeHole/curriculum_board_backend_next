@@ -41,4 +41,4 @@ rand = "0.8.5"
 sha1 = { version = "0.6.1", features = ["std"] }
 
 # OpenSSL 支持
-#openssl = { version = "0.10.41", features = ["vendored"] }
+openssl = { version = "0.10.41", features = ["vendored"] }
