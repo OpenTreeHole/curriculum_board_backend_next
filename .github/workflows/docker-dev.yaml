@@ -11,6 +11,11 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          ref: dev
+      - run: ls -a
       - name: Get tag version
         id: tag
         run: echo "::set-output name=tag::${GITHUB_REF#refs/*/}"
