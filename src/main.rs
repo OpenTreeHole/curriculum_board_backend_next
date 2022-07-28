@@ -14,7 +14,8 @@ use serde_json::json;
 
 fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(curriculum_board::hello)
-        .route("/courses/hash", web::get().to(|| async { HttpResponse::Ok().json(json!({"hash":"unimplemented"})) }))
+        .service(curriculum_board::get_course_groups_hash)
+        .service(curriculum_board::refresh_course_groups_cache)
         .service(curriculum_board::get_course_groups)
         .service(curriculum_board::get_course_group)
         .service(curriculum_board::add_course)

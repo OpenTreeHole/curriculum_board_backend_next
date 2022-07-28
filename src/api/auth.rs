@@ -21,7 +21,7 @@ pub struct UserInfo {
     pub is_admin: bool,
 }
 
-lazy_static::lazy_static! {
+lazy_static! {
     static ref GLOBAL_USER_CACHE: Cache<String,UserInfo> = {
         Cache::new(10000)
     };

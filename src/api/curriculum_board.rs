@@ -1,6 +1,7 @@
+use std::mem::replace;
 use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest};
 use actix_web::middleware::Condition;
-use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, SelectModel, SelectorRaw, TryGetableMany};
+use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, SelectModel, SelectorRaw};
 use sea_orm::ActiveValue::Set;
 use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication, UserInfo};
@@ -11,25 +12,95 @@ use crate::entity::{course, course_review, coursegroup, coursegroup_course, revi
 use crate::entity::course::GetSingleCourse;
 use crate::entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
 use chrono::Local;
+use lazy_static::lazy_static;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use reqwest::StatusCode;
 
 #[get("/")]
 pub async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Welcome to curriculum_board backend. Search for API documents on GitHub please.")
+    HttpResponse::Ok().body(format!("Welcome to curriculum_board backend.\nBrowse API documents on GitHub at https://github.com/OpenTreeHole/curriculum_board_backend_next please.\n\n\
+    Current version: {}\n\
+    Build time: {}\n\
+    Rust compiler version: {}", env!("VERGEN_GIT_SHA"), env!("VERGEN_BUILD_TIMESTAMP"), env!("VERGEN_RUSTC_SEMVER")))
+}
+lazy_static! {
+    static ref COURSE_GROUP_CACHE: RwLock<Option<String>> = RwLock::new(None);
+    static ref COURSE_GROUP_HASH_CACHE: RwLock<Option<String>> = RwLock::new(None);
+}
+async fn build_course_group_cache(db: &DatabaseConnection) -> Result<RwLockReadGuard<Option<String>>, DbErr> {
+    let result: Vec<(coursegroup::Model, Vec<course::Model>)> =
+        Coursegroup::find().find_with_related(Course).all(db).await?;
+    let mut group_list: Vec<GetMultiCourseGroup> = vec![];
+    for x in result {
+        group_list.push(GetMultiCourseGroup::new(x.0, x.1));
+    }
+
+    let mut cache_writer = COURSE_GROUP_CACHE.write().unwrap();
+    *cache_writer = Some(to_string(&group_list).unwrap());
+    drop(cache_writer);
+
+    let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
+    let cache_reader = COURSE_GROUP_CACHE.read().unwrap();
+    *cache_writer = Some(sha1::Sha1::from(cache_reader.clone().unwrap()).hexdigest());
+    drop(cache_writer);
+    drop(cache_reader);
+
+    Ok(COURSE_GROUP_CACHE.read().unwrap())
+}
+
+async fn get_course_group_cache(db: &DatabaseConnection) -> Result<RwLockReadGuard<Option<String>>, DbErr> {
+    let cache = COURSE_GROUP_CACHE.read().unwrap();
+    if cache.is_none() {
+        drop(cache);
+        Ok(build_course_group_cache(db).await?)
+    } else {
+        Ok(cache)
+    }
+}
+
+async fn get_course_group_hash_cache(db: &DatabaseConnection) -> Result<RwLockReadGuard<Option<String>>, DbErr> {
+    let cache = COURSE_GROUP_HASH_CACHE.read().unwrap();
+    if cache.is_none() {
+        drop(cache);
+        let _ = build_course_group_cache(db).await?;
+        Ok(COURSE_GROUP_HASH_CACHE.read().unwrap())
+    } else {
+        Ok(cache)
+    }
+}
+
+#[get("/courses/refresh")]
+pub async fn refresh_course_groups_cache(_: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    let mut cache_writer = COURSE_GROUP_CACHE.write().unwrap();
+    *cache_writer = None;
+    let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
+    *cache_writer = None;
+    HttpResponse::build(StatusCode::from_u16(418).unwrap()).body("I'm a brand new teapot!")
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HashMessage {
+    pub hash: String,
+}
+
+#[get("/courses/hash")]
+pub async fn get_course_groups_hash(_: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    match get_course_group_hash_cache(db.get_ref()).await {
+        Ok(groups) => {
+            let hash_str = groups.clone().unwrap();
+            HttpResponse::Ok().json(HashMessage { hash: hash_str })
+        }
+        Err(e) => internal_server_error(e.to_string())
+    }
 }
 
 #[get("/courses")]
-pub async fn get_course_groups(req: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
-    let result: Result<Vec<(coursegroup::Model, Vec<course::Model>)>, DbErr> =
-        Coursegroup::find().find_with_related(Course).all(db.get_ref()).await;
-    match result {
+pub async fn get_course_groups(_: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+    match get_course_group_cache(db.get_ref()).await {
         Ok(groups) => {
-            let mut group_list: Vec<GetMultiCourseGroup> = vec![];
-            for x in groups {
-                group_list.push(GetMultiCourseGroup::new(x.0, x.1));
-            }
-            HttpResponse::Ok().json(group_list)
+            HttpResponse::Ok().content_type("application/json").body(groups.clone().unwrap())
         }
         Err(e) => internal_server_error(e.to_string())
     }
@@ -89,7 +160,7 @@ pub async fn add_course(new_course: web::Json<course::NewCourse>, req: HttpReque
     match group {
         Err(e) => internal_server_error(e.to_string()),
         Ok(group) => {
-            let mut group_id: i32 = 0;
+            let mut group_id: i32;
             if group.is_none() {
                 // 创建新的 CourseGroup
                 let new_course_group: NewCourseGroup = new_course.clone().into();
@@ -251,7 +322,7 @@ pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, d
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-struct NewVote {
+pub struct NewVote {
     pub upvote: bool,
 }
 

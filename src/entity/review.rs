@@ -3,8 +3,7 @@
 use std::ops::{Index, IndexMut};
 use chrono::Local;
 use sea_orm::entity::prelude::*;
-use sea_orm::entity::FromQueryResult;
-use sea_orm::{IntoActiveModel, NotSet};
+use sea_orm::{NotSet};
 use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
