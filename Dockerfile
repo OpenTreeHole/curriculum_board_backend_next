@@ -7,7 +7,7 @@ RUN update-ca-certificates
 WORKDIR /backend
 
 COPY . ./
-
+RUN ls -a
 RUN cargo build --target x86_64-unknown-linux-musl --release
 
 FROM alpine:latest as ca-certificates
