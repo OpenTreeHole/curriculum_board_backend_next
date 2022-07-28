@@ -15,6 +15,8 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: dev
+      - name: Remove mirror configs
+        run: rm -rf .cargo
       - name: Get tag version
         id: tag
         run: echo "::set-output name=tag::${GITHUB_REF#refs/*/}"
@@ -31,6 +33,7 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
+          context: .
           push: true
           file: Dockerfile
           tags: |

@@ -13,6 +13,10 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          ref: master
       - name: Get tag version
         id: tag
         run: echo "::set-output name=tag::${GITHUB_REF#refs/*/}"
@@ -29,6 +33,7 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v2
         with:
+          context: .
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:${{ steps.tag.outputs.tag }}
