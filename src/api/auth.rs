@@ -1,12 +1,9 @@
 use std::env;
-use std::fmt::format;
-use actix_web::{HttpRequest, HttpResponse, Responder, web};
+use actix_web::{HttpRequest};
 use actix_web::http::StatusCode;
 use if_chain::if_chain;
 use lazy_static::lazy_static;
 use moka::future::Cache;
-use reqwest::{Error, Response};
-use sea_orm::DatabaseConnection;
 use crate::api::error_handler::{internal_server_error, unauthorized};
 use crate::constant;
 use serde::Deserialize;

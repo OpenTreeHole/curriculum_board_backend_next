@@ -5,11 +5,10 @@ mod constant;
 use std::env;
 use api::curriculum_board;
 use api::r#static;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, middleware};
+use actix_web::{web, App, HttpServer, middleware};
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
 use crate::entity::coursegroup as CourseGroup;
-use sea_orm::EntityTrait;
 
 fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(curriculum_board::hello)

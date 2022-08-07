@@ -3,8 +3,7 @@
 use sea_orm::entity::prelude::*;
 use crate::entity::course::{GetSingleCourse, NewCourse};
 use serde::{Deserialize, Serialize};
-use crate::entity::{course, coursegroup};
-use sea_orm::FromQueryResult;
+use crate::entity::{course};
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
 #[sea_orm(table_name = "coursegroup")]

@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, error, Error};
+use actix_web::{HttpResponse, Error};
 use actix_web::error::InternalError;
 use serde::{Serialize, Deserialize};
 

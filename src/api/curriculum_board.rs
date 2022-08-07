@@ -1,11 +1,9 @@
-use std::mem::replace;
-use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest, error};
-use actix_web::middleware::Condition;
-use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, SelectModel, SelectorRaw};
+use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest};
+use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement};
 use sea_orm::ActiveValue::Set;
 use serde_json::{json, to_string, Value};
-use crate::api::auth::{require_authentication, UserInfo};
-use crate::api::error_handler::{bad_request, conflict, ErrorMessage, internal_server_error, not_found, unauthorized};
+use crate::api::auth::{require_authentication};
+use crate::api::error_handler::{bad_request, conflict, internal_server_error, not_found, unauthorized};
 use crate::entity::prelude::*;
 use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
 use crate::entity::{course, course_review, coursegroup, coursegroup_course, review};
@@ -15,10 +13,8 @@ use chrono::Local;
 use lazy_static::lazy_static;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use chrono::format::Item::Error;
+use std::sync::{RwLock, RwLockReadGuard};
 use reqwest::StatusCode;
-use serde::de::Unexpected::Str;
 
 #[get("/")]
 pub async fn hello() -> impl Responder {
@@ -104,8 +100,8 @@ pub async fn get_course_groups(_: HttpRequest, db: web::Data<DatabaseConnection>
 pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
     let group_id = req.match_info().query("group_id").parse::<i32>()
-        .map_err(|e| bad_request(String::from("Invalid id syntax")))?;
-    let result: Vec<(coursegroup::Model, Vec<course::Model>)> = Coursegroup::find_by_id(group_id).find_with_related(Course)
+        .map_err(|_| bad_request(String::from("Invalid id syntax")))?;
+    let group: Vec<(coursegroup::Model, Vec<course::Model>)> = Coursegroup::find_by_id(group_id).find_with_related(Course)
         .all(db.get_ref()).await
         .map_err(|e| internal_server_error(e.to_string()))?;
     if group.is_empty() {
@@ -167,7 +163,7 @@ pub async fn add_course(new_course: web::Json<course::NewCourse>, req: HttpReque
 pub async fn get_course(req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
     let course_id = req.match_info().query("course_id").parse::<i32>()
-        .map_err(|e| bad_request(String::from("Invalid id syntax")))?;
+        .map_err(|_| bad_request(String::from("Invalid id syntax")))?;
 
     let course: Vec<course::Model> = Course::find_by_id(course_id).all(db.get_ref()).await
         .map_err(|e| internal_server_error(e.to_string()))?;
@@ -186,7 +182,7 @@ pub async fn add_review(new_review: web::Json<NewReview>, req: HttpRequest, db: 
     let user_info = require_authentication(&req).await?;
     let new_review = new_review.into_inner();
     let course_id = req.match_info().query("course_id").parse::<i32>()
-        .map_err(|e| bad_request(String::from("Invalid id syntax")))?;
+        .map_err(|_| bad_request(String::from("Invalid id syntax")))?;
 
     // 检查对应课程是否存在
     let course: Option<course::Model> =
@@ -221,7 +217,7 @@ pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, d
     let user_info = require_authentication(&req).await?;
     let new_review = new_review.into_inner();
     let review_id = req.match_info().query("review_id").parse::<i32>()
-        .map_err(|e| bad_request(String::from("Invalid id syntax")))?;
+        .map_err(|_| bad_request(String::from("Invalid id syntax")))?;
 
     let review: Vec<review::Model> = Review::find_by_id(review_id).all(db.get_ref()).await
         .map_err(|e| internal_server_error(e.to_string()))?;
@@ -264,7 +260,7 @@ pub struct NewVote {
 pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
     let review_id = req.match_info().query("review_id").parse::<i32>()
-        .map_err(|e| bad_request(String::from("Invalid id syntax")))?;
+        .map_err(|_| bad_request(String::from("Invalid id syntax")))?;
 
     let vote_data = vote_data.into_inner();
     let review: Vec<review::Model> = Review::find_by_id(review_id).all(db.get_ref()).await

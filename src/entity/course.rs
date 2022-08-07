@@ -3,7 +3,6 @@
 use sea_orm::entity::prelude::*;
 use crate::entity::review;
 use serde::{Deserialize, Serialize};
-use sea_orm::FromQueryResult;
 use sea_orm::ModelTrait;
 use crate::entity::review::GetReview;
 
