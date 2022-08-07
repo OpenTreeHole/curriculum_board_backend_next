@@ -1,5 +1,4 @@
-use std::convert::Infallible;
-use actix_web::{HttpResponse, error};
+use actix_web::{HttpResponse, error, Error};
 use actix_web::error::InternalError;
 use serde::{Serialize, Deserialize};
 
@@ -9,10 +8,28 @@ pub struct ErrorMessage {
 }
 
 // 预定义了一些常用的错误信息。
-pub fn internal_server_error(error: String) -> InternalError<String> {
-    InternalError::from_response(error, HttpResponse::InternalServerError().json(ErrorMessage { message: error.clone() }))
+pub fn internal_server_error(error: String) -> Error {
+    InternalError::from_response(error.clone(),
+                                 HttpResponse::InternalServerError().json(ErrorMessage { message: error })).into()
 }
 
-pub fn not_found(error: String) -> HttpResponse {
-    HttpResponse::NotFound().json(ErrorMessage { message: error })
+pub fn not_found(error: String) -> Error {
+    InternalError::from_response(error.clone(),
+                                 HttpResponse::NotFound().json(ErrorMessage { message: error })).into()
+}
+
+pub fn unauthorized(error: String) -> Error {
+    InternalError::from_response(error.clone(),
+                                 HttpResponse::Unauthorized().json(ErrorMessage { message: error })).into()
+}
+
+
+pub fn bad_request(error: String) -> Error {
+    InternalError::from_response(error.clone(),
+                                 HttpResponse::BadRequest().json(ErrorMessage { message: error })).into()
+}
+
+pub fn conflict(error: String) -> Error {
+    InternalError::from_response(error.clone(),
+                                 HttpResponse::Conflict().json(ErrorMessage { message: error })).into()
 }

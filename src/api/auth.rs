@@ -1,6 +1,5 @@
 use std::env;
 use std::fmt::format;
-use std::future::Future;
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use actix_web::http::StatusCode;
 use if_chain::if_chain;
@@ -8,7 +7,7 @@ use lazy_static::lazy_static;
 use moka::future::Cache;
 use reqwest::{Error, Response};
 use sea_orm::DatabaseConnection;
-use crate::api::error_handler::{ErrorMessage, internal_server_error};
+use crate::api::error_handler::{internal_server_error, unauthorized};
 use crate::constant;
 use serde::Deserialize;
 
@@ -25,7 +24,7 @@ lazy_static! {
     };
 }
 
-async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
+async fn request_user_info(header: &str) -> Result<UserInfo, actix_web::Error> {
     let header = header.to_string();
     let cached_value = GLOBAL_USER_CACHE.get(&header);
     if let Some(info) = cached_value {
@@ -37,7 +36,7 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
     match result {
         Ok(response) => {
             if response.status() == StatusCode::UNAUTHORIZED {
-                return Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Failed.".to_string() }));
+                return Err(unauthorized("Authorization Failed.".to_string()));
             }
             if let Ok(user) = response.json::<UserInfo>().await {
                 GLOBAL_USER_CACHE.insert(header, user).await;
@@ -51,7 +50,7 @@ async fn request_user_info(header: &str) -> Result<UserInfo, HttpResponse> {
     }
 }
 
-pub async fn require_authentication(req: &HttpRequest) -> Result<UserInfo, HttpResponse> {
+pub async fn require_authentication(req: &HttpRequest) -> Result<UserInfo, actix_web::Error> {
     let authorization = req.headers().get("Authorization");
     if_chain! {
         if let Some(header) = authorization;
@@ -59,7 +58,7 @@ pub async fn require_authentication(req: &HttpRequest) -> Result<UserInfo, HttpR
         then {
             return request_user_info(header_value).await
         } else {
-            return Err(HttpResponse::Unauthorized().json(ErrorMessage { message: "Authorization Information Needed.".to_string() }))
+            return Err(unauthorized("Authorization Information Needed.".to_string() ))
         }
     }
 }
