@@ -1,5 +1,5 @@
 use std::mem::replace;
-use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest};
+use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest, error};
 use actix_web::middleware::Condition;
 use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, SelectModel, SelectorRaw};
 use sea_orm::ActiveValue::Set;
@@ -7,7 +7,7 @@ use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication, UserInfo};
 use crate::api::error_handler::{ErrorMessage, internal_server_error, not_found};
 use crate::entity::prelude::*;
-use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
+use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, Model, NewCourseGroup};
 use crate::entity::{course, course_review, coursegroup, coursegroup_course, review};
 use crate::entity::course::GetSingleCourse;
 use crate::entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
@@ -43,7 +43,7 @@ async fn build_course_group_cache(db: &DatabaseConnection) -> Result<RwLockReadG
 
     let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
     let cache_reader = COURSE_GROUP_CACHE.read().unwrap();
-    *cache_writer = Some(sha1::Sha1::from(cache_reader.clone().unwrap()).hexdigest());
+    *cache_writer = Some(sha1::Sha1::from(cache_reader.as_ref().unwrap()).hexdigest());
     drop(cache_writer);
     drop(cache_reader);
 
@@ -72,7 +72,7 @@ async fn get_course_group_hash_cache(db: &DatabaseConnection) -> Result<RwLockRe
 }
 
 #[get("/courses/refresh")]
-pub async fn refresh_course_groups_cache(_: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+pub async fn refresh_course_groups_cache(_: HttpRequest) -> impl Responder {
     let mut cache_writer = COURSE_GROUP_CACHE.write().unwrap();
     *cache_writer = None;
     let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
@@ -86,13 +86,13 @@ pub struct HashMessage {
 }
 
 #[get("/courses/hash")]
-pub async fn get_course_groups_hash(_: HttpRequest, db: web::Data<DatabaseConnection>) -> impl Responder {
+pub async fn get_course_groups_hash(_: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     match get_course_group_hash_cache(db.get_ref()).await {
         Ok(groups) => {
             let hash_str = groups.clone().unwrap();
-            HttpResponse::Ok().json(HashMessage { hash: hash_str })
+            Ok(HttpResponse::Ok().json(HashMessage { hash: hash_str }))
         }
-        Err(e) => internal_server_error(e.to_string())
+        Err(e) => Err(internal_server_error(e.to_string()))
     }
 }
 
@@ -160,19 +160,19 @@ pub async fn add_course(new_course: web::Json<course::NewCourse>, req: HttpReque
     match group {
         Err(e) => internal_server_error(e.to_string()),
         Ok(group) => {
-            let mut group_id: i32;
-            if group.is_none() {
-                // 创建新的 CourseGroup
-                let new_course_group: NewCourseGroup = new_course.clone().into();
-                let new_course_group: Result<coursegroup::Model, DbErr> =
-                    new_course_group.into_active_model().insert(db.get_ref()).await;
-                if let Err(e) = new_course_group {
-                    return internal_server_error(format!("Unable to create new course group. Error: {}", e.to_string()));
+            let group_id = match group {
+                None => {
+                    // 创建新的 CourseGroup
+                    let new_course_group: NewCourseGroup = new_course.clone().into();
+                    let new_course_group: Result<coursegroup::Model, DbErr> =
+                        new_course_group.into_active_model().insert(db.get_ref()).await;
+                    if let Err(e) = new_course_group {
+                        return internal_server_error(format!("Unable to create new course group. Error: {}", e.to_string()));
+                    }
+                    new_course_group.unwrap().id
                 }
-                group_id = new_course_group.unwrap().id;
-            } else {
-                group_id = group.unwrap().id;
-            }
+                Some(group) => { group.id }
+            };
             // 创建新的 Course
             let new_course: Result<course::Model, DbErr> =
                 new_course.into_active_model().insert(db.get_ref()).await;

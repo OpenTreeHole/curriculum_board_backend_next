@@ -8,14 +8,14 @@ build = "build.rs"
 
 [build-dependencies]
 # 编译期获取 Git Commit 号
-vergen = { version = "7.3.1", features = ["git", "build", "rustc"] }
-anyhow = "1.0.58"
+vergen = { version = "7.2.1", features = ["git", "build", "rustc"] }
+anyhow = "1.0.57"
 
 [dependencies]
 # 服务器框架
 actix-web = "4"
 # 静态文件支持
-actix-files = "0.6.1"
+actix-files = "0.6.0"
 # 静态文件的 Mime type 设置
 mime = "0.3.16"
 # ORM 支持。本地开发别忘了装 cargo install sea-orm-cli
@@ -28,9 +28,9 @@ dotenv = "0.15.0"
 # 便于少写点 if let 嵌套
 if_chain = "1.0.2"
 # 异步网络请求
-reqwest = { version = "0.11.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json"] }
 # 键值对缓存
-moka = { version = "0.9.0", features = ["future"] }
+moka = { version = "0.8.5", features = ["future"] }
 # 全局变量
 lazy_static = "1.4.0"
 # 日期时间支持
@@ -40,4 +40,4 @@ rand = "0.8.5"
 # SHA-1 Hash
 sha1 = { version = "0.6.1", features = ["std"] }
 # OpenSSL 支持。因为 features = ["vendored"] 需要 Perl 编译环境，使用本就带有 openssl 的环境本地开发时，最好注释掉
-openssl = { version = "0.10.41", features = ["vendored"] }
+#openssl = { version = "0.10.41", features = ["vendored"] }

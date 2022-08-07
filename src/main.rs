@@ -10,7 +10,6 @@ use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
 use crate::entity::coursegroup as CourseGroup;
 use sea_orm::EntityTrait;
-use serde_json::json;
 
 fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(curriculum_board::hello)

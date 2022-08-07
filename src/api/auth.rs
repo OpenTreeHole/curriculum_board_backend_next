@@ -1,8 +1,6 @@
 use std::env;
 use std::fmt::format;
 use std::future::Future;
-use std::ops::Deref;
-use actix_web::http::header::HeaderValue;
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use actix_web::http::StatusCode;
 use if_chain::if_chain;
