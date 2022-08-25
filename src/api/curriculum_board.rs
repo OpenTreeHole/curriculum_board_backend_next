@@ -1,5 +1,5 @@
 use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest};
-use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement};
+use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, TryGetableMany};
 use sea_orm::ActiveValue::Set;
 use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication};
@@ -15,6 +15,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::sync::{RwLock, RwLockReadGuard};
 use reqwest::StatusCode;
+use sea_orm::sea_query::Query;
 use sha3::{Sha3_256, Digest};
 
 #[get("/")]

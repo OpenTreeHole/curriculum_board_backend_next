@@ -50,4 +50,4 @@ sha3 = "0.10.2"
 # Base16 编码，也就是 Hex 编码
 base16ct = { version = "0.1.1", features = ["alloc"] }
 # OpenSSL 支持。因为 features = ["vendored"] 需要 Perl 编译环境，使用本就带有 openssl 的环境本地开发时，最好注释掉下行，否则会报错。
-# openssl = { version = "0.10.41", features = ["vendored"] }
+openssl = { version = "0.10.41", features = ["vendored"] }
