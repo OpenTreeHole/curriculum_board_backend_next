@@ -3,18 +3,19 @@ use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveMo
 use sea_orm::ActiveValue::Set;
 use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication};
-use crate::api::error_handler::{bad_request, conflict, internal_server_error, not_found, unauthorized};
-use crate::entity::prelude::*;
-use crate::CourseGroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
-use crate::entity::{course, course_review, coursegroup, coursegroup_course, review};
-use crate::entity::course::GetSingleCourse;
-use crate::entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
+use crate::api::error_handler::{bad_request, conflict, forbidden, internal_server_error, not_found, unauthorized};
+use entity::prelude::*;
+use entity::{course, course_review, coursegroup, coursegroup_course, review};
+use entity::course::GetSingleCourse;
+use entity::coursegroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
+use entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
 use chrono::Local;
 use lazy_static::lazy_static;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::sync::{RwLock, RwLockReadGuard};
 use reqwest::StatusCode;
+use sha3::{Sha3_256, Digest};
 
 #[get("/")]
 pub async fn hello() -> impl Responder {
@@ -41,7 +42,9 @@ async fn build_course_group_cache(db: &DatabaseConnection) -> Result<RwLockReadG
 
     let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
     let cache_reader = COURSE_GROUP_CACHE.read().unwrap();
-    *cache_writer = Some(sha1::Sha1::from(cache_reader.as_ref().unwrap()).hexdigest());
+    let hash = Sha3_256::digest(cache_reader.as_ref().unwrap().as_bytes());
+    let hex_hash = base16ct::lower::encode_string(&hash);
+    *cache_writer = Some(hex_hash);
     drop(cache_writer);
     drop(cache_reader);
 
@@ -361,3 +364,27 @@ pub async fn get_random_reviews(req: HttpRequest, db: web::Data<DatabaseConnecti
     }
     Err(internal_server_error("Unable to fetch a random review. Retry later.".to_string()))
 }
+
+// 将评论标记为删除
+// #[delete("/reviews/{review_id}")]
+// pub async fn delete_review(req: HttpRequest, review_id: web::Path<i32>, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
+//     let user_info = require_authentication(&req).await?;
+//     let review_id = review_id.into_inner();
+//     let review: Vec<review::Model> = Review::find_by_id(review_id.into_inner()).all(db.get_ref()).await
+//         .map_err(|e| internal_server_error(e.to_string()))?;
+//     if review.is_empty() {
+//         return Err(not_found(format!("Review with id {} is not found.", review_id)));
+//     }
+//     let review = &review[0];
+//     if review.reviewer_id != user_info.id && !user_info.is_admin {
+//         return Err(forbidden("You are not allowed to delete this review.".to_string()));
+//     }
+//     let mut updated_review: review::ActiveModel = review.clone().into();
+//     updated_review.deleted = true;
+//     let updated_review: Result<review::Model, DbErr> = updated_review.update(db.get_ref()).await;
+//     match updated_review {
+//         Ok(updated_review) => Ok(HttpResponse::Ok().json(GetReview::new(updated_review, user_info.id))),
+//         Err(err) => Err(internal_server_error(format!("Unable to update the review. Error: {}", err.to_string())))
+//     }
+// }
+

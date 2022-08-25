@@ -33,3 +33,8 @@ pub fn conflict(error: String) -> Error {
     InternalError::from_response(error.clone(),
                                  HttpResponse::Conflict().json(ErrorMessage { message: error })).into()
 }
+
+pub fn forbidden(error: String) -> Error {
+    InternalError::from_response(error.clone(),
+                                 HttpResponse::Forbidden().json(ErrorMessage { message: error })).into()
+}

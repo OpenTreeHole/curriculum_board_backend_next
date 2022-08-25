@@ -1,5 +1,4 @@
 mod api;
-mod entity;
 mod constant;
 
 use std::env;
@@ -8,7 +7,7 @@ use api::r#static;
 use actix_web::{web, App, HttpServer, middleware};
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
-use crate::entity::coursegroup as CourseGroup;
+use migration::{Migrator, MigratorTrait};
 
 fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(curriculum_board::hello)
@@ -32,6 +31,7 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
     let db: DatabaseConnection = Database::connect(env::var(constant::ENV_DB_URL).unwrap()).await.unwrap();
+    Migrator::up(&db, None).await.unwrap();
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Compress::default())

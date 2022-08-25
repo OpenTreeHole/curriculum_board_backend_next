@@ -6,7 +6,7 @@ use sea_orm::{NotSet};
 use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::entity::course;
+use crate::course;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
 #[sea_orm(table_name = "review")]
