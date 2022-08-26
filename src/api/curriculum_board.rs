@@ -1,3 +1,4 @@
+use std::fmt::format;
 use actix_web::{get, post, put, patch, HttpResponse, Responder, web, HttpRequest};
 use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveModelTrait, QueryFilter, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, InsertResult, IntoActiveModel, Statement, TryGetableMany};
 use sea_orm::ActiveValue::Set;
@@ -38,7 +39,7 @@ async fn build_course_group_cache(db: &DatabaseConnection) -> Result<RwLockReadG
     }
 
     let mut cache_writer = COURSE_GROUP_CACHE.write().unwrap();
-    *cache_writer = Some(to_string(&group_list).unwrap());
+    *cache_writer = Some(to_string(&group_list).map_err(|e| DbErr::Custom(e.to_string()))?);
     drop(cache_writer);
 
     let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
@@ -79,7 +80,7 @@ pub async fn refresh_course_groups_cache(_: HttpRequest) -> impl Responder {
     *cache_writer = None;
     let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
     *cache_writer = None;
-    HttpResponse::build(StatusCode::from_u16(418).unwrap()).body("I'm a brand new teapot!")
+    HttpResponse::build(StatusCode::IM_A_TEAPOT).body("I'm a brand new empty teapot now!")
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,14 +91,18 @@ pub struct HashMessage {
 #[get("/courses/hash")]
 pub async fn get_course_groups_hash(_: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let groups = get_course_group_hash_cache(db.get_ref()).await.map_err(|e| internal_server_error(e.to_string()))?;
-    let hash_str = groups.clone().unwrap();
+    let hash_str = groups.clone().ok_or(internal_server_error("Missing cache. The server did build the cache but the cache seems to be none.".to_string()))?;
     Ok(HttpResponse::Ok().json(HashMessage { hash: hash_str }))
 }
 
 #[get("/courses")]
 pub async fn get_course_groups(_: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let groups = get_course_group_cache(db.get_ref()).await.map_err(|e| internal_server_error(e.to_string()))?;
-    Ok(HttpResponse::Ok().content_type("application/json").body(groups.clone().unwrap()))
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .body(groups.clone()
+            .ok_or(internal_server_error("Missing cache. The server did build the cache but the cache seems to be none.".to_string()))?)
+    )
 }
 
 #[get("/group/{group_id}")]
@@ -235,9 +240,10 @@ pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, d
     }
 
     // 储存目前的 Review
-    let snapshot = serde_json::to_value(&review.clone().into() as &HistoryReview).unwrap();
-
-    let mut history = (*review.history.as_array().unwrap()).clone();
+    let snapshot = serde_json::to_value(&review.clone().into() as &HistoryReview)
+        .map_err(|e| internal_server_error(format!("Unable to encode the review into JSON value. Original error: {}", e.to_string())))?;
+    let array_parsing_error = internal_server_error(String::from("Unable to parse the original review's history fields."));
+    let mut history = (*review.history.as_array().ok_or(array_parsing_error)?).clone();
     history.push(json!({
                         "alter_by":user_info.id,
                         "time": Local::now().naive_utc(),
@@ -276,8 +282,9 @@ pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db
     let review = &review[0];
 
     // 复制并设置 *voters 列表
-    let mut upvoters = (*review.upvoters.as_array().unwrap()).clone();
-    let mut downvoters = (*review.downvoters.as_array().unwrap()).clone();
+    let voters_parsing_error = "Unable to parse the review's voter fields.";
+    let mut upvoters = (*review.upvoters.as_array().ok_or(internal_server_error(voters_parsing_error.to_string()))?).clone();
+    let mut downvoters = (*review.downvoters.as_array().ok_or(internal_server_error(voters_parsing_error.to_string()))?).clone();
     let up_pos = upvoters.iter().position(|upvoter_id| upvoter_id.as_i64().unwrap_or(-1) as i32 == user_info.id);
     let down_pos = downvoters.iter().position(|downvoter_id| downvoter_id.as_i64().unwrap_or(-1) as i32 == user_info.id);
     if vote_data.upvote {
