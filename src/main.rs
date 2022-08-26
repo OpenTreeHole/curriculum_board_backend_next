@@ -1,5 +1,6 @@
 mod api;
 mod constant;
+mod tests;
 
 use std::env;
 use api::curriculum_board;
@@ -42,3 +43,4 @@ async fn main() -> std::io::Result<()> {
         .run()
         .await
 }
+

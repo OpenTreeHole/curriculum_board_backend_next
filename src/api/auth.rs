@@ -48,6 +48,14 @@ async fn request_user_info(header: &str) -> Result<UserInfo, actix_web::Error> {
 }
 
 pub async fn require_authentication(req: &HttpRequest) -> Result<UserInfo, actix_web::Error> {
+    // 单元测试环境，不验证任何身份信息
+    if cfg!(test) {
+        return Ok(UserInfo {
+            id: 233,
+            is_admin: true,
+        });
+    }
+
     let authorization = req.headers().get("Authorization");
     if_chain! {
         if let Some(header) = authorization;
