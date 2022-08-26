@@ -16,7 +16,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::sync::{RwLock, RwLockReadGuard};
 use reqwest::StatusCode;
-use sea_orm::sea_query::Query;
 use sha3::{Sha3_256, Digest};
 
 #[get("/")]

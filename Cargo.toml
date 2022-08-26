@@ -27,7 +27,7 @@ actix-files = "0.6.0"
 # 静态文件的 Mime type 设置
 mime = "0.3.16"
 # ORM 支持。本地开发别忘了装 cargo install sea-orm-cli
-sea-orm = { version = "0.8.0", features = ["sqlx-mysql", "runtime-actix-native-tls", "macros"] }
+sea-orm = { version = "0.8.0", features = ["sqlx-sqlite", "sqlx-mysql", "runtime-actix-native-tls", "macros"] }
 # JSON 支持
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
