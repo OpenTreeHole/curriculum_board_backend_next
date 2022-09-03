@@ -2,7 +2,6 @@
 
 #[cfg(test)]
 mod tests {
-    use serial_test::serial;
     use actix_web::{App, http::{self}, test, web};
     use actix_web::body::{MessageBody};
     use actix_web::dev::{ServiceResponse};
