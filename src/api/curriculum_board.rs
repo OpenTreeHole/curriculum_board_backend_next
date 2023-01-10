@@ -66,7 +66,7 @@ async fn get_course_group_hash_cache(db: &DatabaseConnection) -> Result<RwLockRe
     let cache = COURSE_GROUP_HASH_CACHE.read().unwrap();
     if cache.is_none() {
         drop(cache);
-        let _ = build_course_group_cache(db).await?;
+        drop(build_course_group_cache(db).await?);
         Ok(COURSE_GROUP_HASH_CACHE.read().unwrap())
     } else {
         Ok(cache)
