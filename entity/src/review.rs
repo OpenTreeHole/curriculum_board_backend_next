@@ -6,9 +6,10 @@ use sea_orm::{NotSet};
 use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use utoipa::ToSchema;
 use crate::course;
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel, ToSchema)]
 #[sea_orm(table_name = "review")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -79,7 +80,7 @@ impl GetReview {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct GetReview {
     pub id: i32,
     pub title: String,
@@ -121,7 +122,7 @@ impl ActiveModel {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct NewReview {
     pub title: String,
     pub content: String,
@@ -159,7 +160,7 @@ impl GetMyReview {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct GetMyReview {
     pub id: i32,
     pub title: String,
@@ -173,7 +174,7 @@ pub struct GetMyReview {
     pub course: course::Model,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct HistoryReview {
     pub title: String,
     pub content: String,

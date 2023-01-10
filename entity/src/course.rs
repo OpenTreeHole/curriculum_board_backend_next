@@ -4,9 +4,10 @@ use sea_orm::entity::prelude::*;
 use crate::review;
 use serde::{Deserialize, Serialize};
 use sea_orm::ModelTrait;
+use utoipa::ToSchema;
 use crate::review::GetReview;
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel, ToSchema)]
 #[sea_orm(table_name = "course")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -89,7 +90,7 @@ impl GetSingleCourse {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct GetSingleCourse {
     pub id: i32,
     pub name: String,
@@ -106,7 +107,7 @@ pub struct GetSingleCourse {
     pub review_list: Vec<GetReview>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, DeriveIntoActiveModel)]
+#[derive(Debug, Clone, Deserialize, Serialize, DeriveIntoActiveModel, ToSchema)]
 pub struct NewCourse {
     pub name: String,
     pub code: String,

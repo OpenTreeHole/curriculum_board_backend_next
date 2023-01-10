@@ -3,9 +3,10 @@
 use sea_orm::entity::prelude::*;
 use crate::course::{GetSingleCourse, NewCourse};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use crate::course;
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel, ToSchema)]
 #[sea_orm(table_name = "coursegroup")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -48,7 +49,7 @@ impl From<Model> for GetSingleCourseGroup {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct GetSingleCourseGroup {
     pub id: i32,
     pub name: String,
@@ -79,7 +80,7 @@ impl From<Model> for GetMultiCourseGroup {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct GetMultiCourseGroup {
     pub id: i32,
     pub name: String,
@@ -108,7 +109,7 @@ impl From<NewCourse> for NewCourseGroup {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, DeriveIntoActiveModel)]
+#[derive(Debug, Clone, Deserialize, Serialize, DeriveIntoActiveModel, ToSchema)]
 pub struct NewCourseGroup {
     pub name: String,
     pub code: String,

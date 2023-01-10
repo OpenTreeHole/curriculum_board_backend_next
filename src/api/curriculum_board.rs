@@ -73,8 +73,13 @@ async fn get_course_group_hash_cache(db: &DatabaseConnection) -> Result<RwLockRe
     }
 }
 
+#[utoipa::path(
+responses(
+(status = 418, description = "Refresh cache successfully"),
+)
+)]
 #[get("/courses/refresh")]
-pub async fn refresh_course_groups_cache(_: HttpRequest) -> impl Responder {
+pub async fn refresh_course_groups_cache(_unused: HttpRequest) -> impl Responder {
     let mut cache_writer = COURSE_GROUP_CACHE.write().unwrap();
     *cache_writer = None;
     let mut cache_writer = COURSE_GROUP_HASH_CACHE.write().unwrap();
