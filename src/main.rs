@@ -13,27 +13,43 @@ use migration::{Migrator, MigratorTrait};
 
 
 mod openapi {
-    use utoipa::OpenApi;
-    use crate::curriculum_board;
-    use entity::course::GetSingleCourse;
+    use utoipa::{Modify, OpenApi};
+    use utoipa::openapi::security::{Http, HttpAuthScheme, HttpBuilder, SecurityScheme};
+    use crate::{
+        curriculum_board,
+        r#static,
+    };
+    use entity::course::{GetSingleCourse, NewCourse};
     use entity::coursegroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
     use entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
 
+    struct AuthorizationAddon;
+
+    impl Modify for AuthorizationAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            let components = openapi.components.as_mut().unwrap(); // we can unwrap safely since there already is components registered.
+            components.add_security_scheme(
+                "auth",
+                SecurityScheme::Http(HttpBuilder::new().scheme(HttpAuthScheme::Bearer).bearer_format("JWT").build()),
+            )
+        }
+    }
+
     #[derive(OpenApi)]
-// #[openapi(paths(curriculum_board::hello,
-// curriculum_board::get_course_groups_hash,
-// curriculum_board::refresh_course_groups_cache,
-// curriculum_board::get_course_groups,
-// curriculum_board::get_course_group,
-// curriculum_board::add_course,
-// curriculum_board::get_course,
-// curriculum_board::add_review,
-// curriculum_board::modify_review,
-// curriculum_board::vote_for_review,
-// curriculum_board::get_reviews,
-// curriculum_board::get_random_reviews,
-// r#static::cedict))]
-    #[openapi(paths(curriculum_board::refresh_course_groups_cache),
+    #[openapi(paths(curriculum_board::hello,
+    curriculum_board::get_course_groups_hash,
+    curriculum_board::refresh_course_groups_cache,
+    curriculum_board::get_course_groups,
+    curriculum_board::get_course_group,
+    curriculum_board::add_course,
+    curriculum_board::get_course,
+    curriculum_board::add_review,
+    curriculum_board::modify_review,
+    curriculum_board::vote_for_review,
+    curriculum_board::get_reviews,
+    curriculum_board::get_random_reviews,
+    r#static::cedict
+    ),
     components(schemas(
     GetMultiCourseGroup,
     GetSingleCourseGroup,
@@ -42,7 +58,11 @@ mod openapi {
     GetMyReview,
     GetReview,
     HistoryReview,
-    NewReview)))]
+    NewReview,
+    NewCourse,
+    curriculum_board::HashMessage,
+    curriculum_board::NewVote)),
+    modifiers(& AuthorizationAddon))]
     pub(crate) struct ApiDoc;
 }
 

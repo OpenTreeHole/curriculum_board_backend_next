@@ -11,6 +11,6 @@ sea-orm = { version = "^0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # 日期时间支持
-chrono = "0.4.19"
+chrono = "0.4.23"
 # OpenAPI 文档生成
 utoipa = { version = "2.4.2", features = ["actix_extras"] }

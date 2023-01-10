@@ -1,8 +1,9 @@
 use actix_web::{HttpResponse, Error};
 use actix_web::error::InternalError;
 use serde::{Serialize, Deserialize};
+use utoipa::ToSchema;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct ErrorMessage {
     pub message: String,
 }

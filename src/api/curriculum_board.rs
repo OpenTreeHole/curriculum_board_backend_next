@@ -4,10 +4,10 @@ use sea_orm::{FromQueryResult, ConnectionTrait, QueryTrait, ModelTrait, ActiveMo
 use sea_orm::ActiveValue::Set;
 use serde_json::{json, to_string, Value};
 use crate::api::auth::{require_authentication};
-use crate::api::error_handler::{bad_request, conflict, forbidden, internal_server_error, not_found, unauthorized};
+use crate::api::error_handler::{bad_request, conflict, forbidden, internal_server_error, not_found, unauthorized, ErrorMessage};
 use entity::prelude::*;
 use entity::{course, course_review, coursegroup, coursegroup_course, review};
-use entity::course::GetSingleCourse;
+use entity::course::{GetSingleCourse, NewCourse};
 use entity::coursegroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
 use entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
 use chrono::Local;
@@ -17,7 +17,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::{RwLock, RwLockReadGuard};
 use reqwest::StatusCode;
 use sha3::{Sha3_256, Digest};
+use utoipa::ToSchema;
 
+#[utoipa::path(
+responses(
+(status = 200, description = "Return debug information"),
+)
+)]
 #[get("/")]
 pub async fn hello() -> impl Responder {
     HttpResponse::Ok().body(format!("Welcome to curriculum_board backend.\nBrowse API documents on GitHub at https://github.com/OpenTreeHole/curriculum_board_backend_next please.\n\n\
@@ -87,20 +93,30 @@ pub async fn refresh_course_groups_cache(_unused: HttpRequest) -> impl Responder
     HttpResponse::build(StatusCode::IM_A_TEAPOT).body("I'm a brand new empty teapot now!")
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 pub struct HashMessage {
     pub hash: String,
 }
 
+#[utoipa::path(
+responses(
+(status = 200, description = "Hash of course group cache", body = HashMessage),
+)
+)]
 #[get("/courses/hash")]
-pub async fn get_course_groups_hash(_: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
+pub async fn get_course_groups_hash(_unused: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let groups = get_course_group_hash_cache(db.get_ref()).await.map_err(|e| internal_server_error(e.to_string()))?;
     let hash_str = groups.clone().ok_or(internal_server_error("Missing cache. The server did build the cache but the cache seems to be none.".to_string()))?;
     Ok(HttpResponse::Ok().json(HashMessage { hash: hash_str }))
 }
 
+#[utoipa::path(
+responses(
+(status = 200, description = "Course group. Reviews are not included.", body = [GetMultiCourseGroup]),
+)
+)]
 #[get("/courses")]
-pub async fn get_course_groups(_: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
+pub async fn get_course_groups(_unused: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let groups = get_course_group_cache(db.get_ref()).await.map_err(|e| internal_server_error(e.to_string()))?;
     Ok(HttpResponse::Ok()
         .content_type("application/json")
@@ -109,6 +125,14 @@ pub async fn get_course_groups(_: HttpRequest, db: web::Data<DatabaseConnection>
     )
 }
 
+#[utoipa::path(
+responses(
+(status = 200, description = "Single course group. Reviews are also preloaded.", body = GetSingleCourseGroup),
+(status = 404, description = "Course group with given id not found.", body = ErrorMessage,
+example = json ! (ErrorMessage { message: "Course group with id 1 not found.".to_string() }))
+),
+security(("auth" = []))
+)]
 #[get("/group/{group_id}")]
 pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
@@ -137,8 +161,15 @@ pub async fn get_course_group(req: HttpRequest, db: web::Data<DatabaseConnection
     Ok(HttpResponse::Ok().json(GetSingleCourseGroup::new(group_and_courses.0.clone(), course_list)))
 }
 
+#[utoipa::path(
+request_body = NewCourse,
+responses(
+(status = 200, description = "Course created successfully.", body = GetSingleCourse),
+),
+security(("auth" = []))
+)]
 #[post("/courses")]
-pub async fn add_course(new_course: web::Json<course::NewCourse>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
+pub async fn add_course(new_course: web::Json<NewCourse>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
     if !user_info.is_admin {
         return Err(unauthorized(String::from("Only admin can add new course")));
@@ -172,6 +203,12 @@ pub async fn add_course(new_course: web::Json<course::NewCourse>, req: HttpReque
     Ok(HttpResponse::Ok().json(GetSingleCourse::from(new_course)))
 }
 
+#[utoipa::path(
+responses(
+(status = 200, description = "Course. Reviews are also preloaded.", body = GetSingleCourse),
+),
+security(("auth" = []))
+)]
 #[get("/courses/{course_id}")]
 pub async fn get_course(req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
@@ -190,6 +227,15 @@ pub async fn get_course(req: HttpRequest, db: web::Data<DatabaseConnection>) -> 
     }
 }
 
+#[utoipa::path(
+request_body = NewReview,
+responses(
+(status = 200, description = "Review created successfully.", body = GetReview),
+(status = 409, description = "The user has already reviewed this course.", body = ErrorMessage,
+example = json ! (ErrorMessage { message: "You cannot post more than one review.".to_string() }))
+),
+security(("auth" = []))
+)]
 #[post("/courses/{course_id}/reviews")]
 pub async fn add_review(new_review: web::Json<NewReview>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
@@ -225,6 +271,13 @@ pub async fn add_review(new_review: web::Json<NewReview>, req: HttpRequest, db: 
     Ok(HttpResponse::Ok().json(GetReview::new(review_added, user_info.id)))
 }
 
+#[utoipa::path(
+request_body = NewReview,
+responses(
+(status = 200, description = "Review modified successfully.", body = GetReview),
+),
+security(("auth" = []))
+)]
 #[put("/reviews/{review_id}")]
 pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
@@ -265,11 +318,18 @@ pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, d
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct NewVote {
     pub upvote: bool,
 }
 
+#[utoipa::path(
+request_body = NewVote,
+responses(
+(status = 200, description = "Review voted successfully.", body = GetReview),
+),
+security(("auth" = []))
+)]
 #[patch("/reviews/{review_id}")]
 pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
@@ -328,7 +388,12 @@ pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db
     }
 }
 
-
+#[utoipa::path(
+responses(
+(status = 200, description = "Get my reviews. `is_me` is not included.", body = [GetMyReview])
+),
+security(("auth" = []))
+)]
 #[get("/reviews/me")]
 pub async fn get_reviews(req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
@@ -350,6 +415,12 @@ pub struct Counts {
     cnt: i32,
 }
 
+#[utoipa::path(
+responses(
+(status = 200, description = "Get a random review. `is_me` is not included.", body = [GetMyReview])
+),
+security(("auth" = []))
+)]
 #[get("/reviews/random")]
 pub async fn get_random_reviews(req: HttpRequest, db: web::Data<DatabaseConnection>) -> actix_web::Result<HttpResponse> {
     let user_info = require_authentication(&req).await?;
