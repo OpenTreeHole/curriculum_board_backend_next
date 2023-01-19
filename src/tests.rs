@@ -34,6 +34,7 @@ mod tests {
         test_about().await;
         test_group_cache().await;
         test_group().await;
+        // test_random().await;
     }
 
     async fn test_about() {
@@ -79,5 +80,12 @@ mod tests {
         // assert_eq!(resp.status(), http::StatusCode::OK);
         // let result = serde_json::from_str::<serde_json::Value>(&get_body(resp)).unwrap();
         // assert_eq!(result.as_object().unwrap()["id"].as_i64().unwrap(), 1);
+    }
+
+    async fn test_random() {
+        let app = ensure_app_built!();
+        let resp = test::call_service(&app, TestRequest::get().uri("/reviews/random").to_request()).await;
+        assert_eq!(resp.status(), http::StatusCode::NOT_FOUND);
+        let result = serde_json::from_str::<serde_json::Value>(&get_body(resp)).unwrap();
     }
 }

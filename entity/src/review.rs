@@ -143,7 +143,7 @@ impl From<Model> for HistoryReview {
 }
 
 impl GetMyReview {
-    pub fn new(model: Model, course: course::Model, user_id: i32) -> Self {
+    pub fn new(model: Model, course: course::Model, group_id: i32, user_id: i32) -> Self {
         let (upvote, downvote, voted) = _calculate_votes(&model, user_id);
         GetMyReview {
             id: model.id,
@@ -156,6 +156,7 @@ impl GetMyReview {
             remark: upvote - downvote,
             vote: voted,
             course,
+            group_id,
         }
     }
 }
@@ -172,6 +173,7 @@ pub struct GetMyReview {
     pub vote: i32,
     pub remark: i32,
     pub course: course::Model,
+    pub group_id: i32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]

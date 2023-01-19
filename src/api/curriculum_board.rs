@@ -404,7 +404,14 @@ pub async fn get_reviews(req: HttpRequest, db: web::Data<DatabaseConnection>) ->
     for x in results {
         let review = &x.0;
         let course = &x.1[0];
-        review_list.push(GetMyReview::new(review.clone(), course.clone(), user_info.id))
+        // 找到对应的课程组 ID
+        let result = CoursegroupCourse::find().filter(coursegroup_course::Column::CourseId.eq(course.id)).one(db.get_ref()).await
+            .map_err(|e| internal_server_error(e.to_string()))?;
+        if let Some(course_group_link) = result {
+            review_list.push(GetMyReview::new(review.clone(), course.clone(), course_group_link.coursegroup_id, user_info.id));
+        } else {
+            review_list.push(GetMyReview::new(review.clone(), course.clone(), -1, user_info.id));
+        }
     }
 
     Ok(HttpResponse::Ok().json(review_list))
@@ -434,6 +441,9 @@ pub async fn get_random_reviews(req: HttpRequest, db: web::Data<DatabaseConnecti
         .cnt;
     let mut rng = rand::thread_rng();
     // 重试 5 次
+    if review_count == 0 {
+        return Err(not_found("No review is found.".to_string()));
+    }
     for _ in 1..5 {
         let id = rng.gen_range(1..=review_count) as i32;
         let result: Result<Vec<(review::Model, Vec<course::Model>)>, DbErr> =
@@ -441,7 +451,14 @@ pub async fn get_random_reviews(req: HttpRequest, db: web::Data<DatabaseConnecti
         if let Ok(results) = result {
             if !results.is_empty() {
                 let result = results[0].clone();
-                return Ok(HttpResponse::Ok().json(GetMyReview::new(result.0, result.1[0].clone(), user_info.id)));
+                // 找到对应的课程组 ID
+                let result_link = CoursegroupCourse::find().filter(coursegroup_course::Column::CourseId.eq(result.1[0].id)).one(db.get_ref()).await
+                    .map_err(|e| internal_server_error(e.to_string()))?;
+                return if let Some(course_group_link) = result_link {
+                    Ok(HttpResponse::Ok().json(GetMyReview::new(result.0.clone(), result.1[0].clone(), course_group_link.coursegroup_id, user_info.id)))
+                } else {
+                    Ok(HttpResponse::Ok().json(GetMyReview::new(result.0, result.1[0].clone(), -1, user_info.id)))
+                };
             }
         }
     }
