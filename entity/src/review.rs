@@ -7,7 +7,8 @@ use sea_orm::ActiveValue::Set;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::ToSchema;
-use crate::course;
+use crate::{course, userextra};
+use crate::prelude::Userextra;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize, DeriveEntityModel, ToSchema)]
 #[sea_orm(table_name = "review")]
@@ -62,9 +63,10 @@ fn _calculate_votes(model: &Model, user_id: i32) -> (i32, i32, i32) {
 }
 
 impl GetReview {
-    pub fn new(model: Model, user_id: i32) -> Self {
+    pub async fn load(model: Model, db: &DatabaseConnection, user_id: i32) -> Result<Self, DbErr> {
         let (upvote, downvote, voted) = _calculate_votes(&model, user_id);
-        GetReview {
+        let extras = Userextra::find().filter(userextra::Column::UserId.eq(model.reviewer_id)).one(db).await?;
+        Ok(GetReview {
             id: model.id,
             title: model.title,
             content: model.content,
@@ -76,7 +78,8 @@ impl GetReview {
             is_me: model.reviewer_id == user_id,
             remark: upvote - downvote,
             vote: voted,
-        }
+            extra: extras.map(|x| x.extra),
+        })
     }
 }
 
@@ -93,6 +96,7 @@ pub struct GetReview {
     pub is_me: bool,
     pub vote: i32,
     pub remark: i32,
+    pub extra: Option<Json>,
 }
 
 impl NewReview {

@@ -268,7 +268,8 @@ pub async fn add_review(new_review: web::Json<NewReview>, req: HttpRequest, db: 
         return Err(internal_server_error(format!("Unable to link between review and course. Error: {}", e.to_string())));
     }
 
-    Ok(HttpResponse::Ok().json(GetReview::new(review_added, user_info.id)))
+    Ok(HttpResponse::Ok().json(GetReview::load(review_added, db.get_ref(), user_info.id).await
+        .map_err(|e| internal_server_error(format!("Unable to load review. Error: {}", e.to_string())))?))
 }
 
 #[utoipa::path(
@@ -313,7 +314,8 @@ pub async fn modify_review(new_review: web::Json<NewReview>, req: HttpRequest, d
     let updated_review: Result<review::Model, DbErr> = updated_review.update(db.get_ref()).await;
 
     match updated_review {
-        Ok(updated_review) => Ok(HttpResponse::Ok().json(GetReview::new(updated_review, user_info.id))),
+        Ok(updated_review) => Ok(HttpResponse::Ok().json(GetReview::load(updated_review, db.get_ref(), user_info.id).await
+            .map_err(|e| internal_server_error(format!("Unable to load updated review. Error: {}", e.to_string())))?)),
         Err(err) => Err(internal_server_error(format!("Unable to update the review. Error: {}", err.to_string())))
     }
 }
@@ -383,7 +385,8 @@ pub async fn vote_for_review(vote_data: web::Json<NewVote>, req: HttpRequest, db
     let updated_review: Result<review::Model, DbErr> = updated_review.update(db.get_ref()).await;
 
     match updated_review {
-        Ok(updated_review) => Ok(HttpResponse::Ok().json(GetReview::new(updated_review, user_info.id))),
+        Ok(updated_review) => Ok(HttpResponse::Ok().json(GetReview::load(updated_review, db.get_ref(), user_info.id).await
+            .map_err(|e| internal_server_error(e.to_string()))?)),
         Err(err) => Err(internal_server_error(format!("Unable to update the review. Error: {}", err.to_string())))
     }
 }

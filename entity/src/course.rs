@@ -83,7 +83,7 @@ impl GetSingleCourse {
         let mut course: Self = model.into();
         let mut review_list: Vec<GetReview> = vec![];
         for review in review_raw_list {
-            review_list.push(GetReview::new(review, user_id));
+            review_list.push(GetReview::load(review, db, user_id).await?);
         }
         course.review_list = review_list;
         Ok(course)

@@ -5,3 +5,4 @@ pub use super::course_review::Entity as CourseReview;
 pub use super::coursegroup::Entity as Coursegroup;
 pub use super::coursegroup_course::Entity as CoursegroupCourse;
 pub use super::review::Entity as Review;
+pub use super::userextra::Entity as Userextra;
