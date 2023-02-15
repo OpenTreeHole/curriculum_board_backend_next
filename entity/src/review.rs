@@ -117,7 +117,7 @@ impl Userextra {
         }
 
         let user_extra = Userextra {
-            achievement: GetAchievement::load(user_id, db).await?,
+            achievements: GetAchievement::load(user_id, db).await?,
         };
 
         GLOBAL_USER_EXTRA_CACHE
@@ -130,7 +130,7 @@ impl Userextra {
 
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct Userextra {
-    pub achievement: Vec<GetAchievement>,
+    pub achievements: Vec<GetAchievement>,
 }
 
 impl NewReview {
