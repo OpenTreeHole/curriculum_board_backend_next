@@ -1,25 +1,28 @@
-[source.crates-io]
-registry = "https://github.com/rust-lang/crates.io-index"
+[build]
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    '-Clink-arg=-fuse-ld=lld',
+    '-Zshare-generics=y',
+]
 
-# 替换成你偏好的镜像源
-#replace-with = 'sjtu'
-replace-with = 'tuna'
+[target.x86_64-pc-windows-msvc]
+rustflags = ['-Zshare-generics=y']
+linker = 'rust-lld.exe'
 
-# 清华大学
-[source.tuna]
-registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"
+[target.x86_64-apple-darwin]
+rustflags = [
+    '-C',
+    '-Zshare-generics=y',
+    '-Csplit-debuginfo=unpacked',
+]
+[profile.dev]
+opt-level = 0
+debug = 2
+incremental = true
+codegen-units = 512
 
-# 中国科学技术大学
-[source.ustc]
-registry = "git://mirrors.ustc.edu.cn/crates.io-index"
-
-# 上海交通大学
-[source.sjtu]
-registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index"
-
-# rustcc社区
-[source.rustcc]
-registry = "git://crates.rustcc.cn/crates.io-index"
-
-[net]
-git-fetch-with-cli = false
+[profile.release]
+opt-level = 3
+debug = 0
+incremental = false
+codegen-units = 256

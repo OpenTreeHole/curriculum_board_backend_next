@@ -14,14 +14,15 @@ use migration::{Migrator, MigratorTrait};
 
 mod openapi {
     use utoipa::{Modify, OpenApi};
-    use utoipa::openapi::security::{Http, HttpAuthScheme, HttpBuilder, SecurityScheme};
+    use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
     use crate::{
         curriculum_board,
         r#static,
     };
     use entity::course::{GetSingleCourse, NewCourse};
     use entity::coursegroup::{GetMultiCourseGroup, GetSingleCourseGroup, NewCourseGroup};
-    use entity::review::{GetMyReview, GetReview, HistoryReview, NewReview};
+    use entity::review::{GetMyReview, GetReview, HistoryReview, NewReview, Userextra};
+    use entity::user_achievement::GetAchievement;
 
     struct AuthorizationAddon;
 
@@ -57,9 +58,11 @@ mod openapi {
     GetSingleCourse,
     GetMyReview,
     GetReview,
+    Userextra,
     HistoryReview,
     NewReview,
     NewCourse,
+    GetAchievement,
     curriculum_board::HashMessage,
     curriculum_board::NewVote)),
     modifiers(& AuthorizationAddon))]

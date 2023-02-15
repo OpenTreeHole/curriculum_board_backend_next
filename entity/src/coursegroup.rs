@@ -11,13 +11,13 @@ use crate::course;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    #[sea_orm(column_type = "Custom(\"LONGTEXT\".to_owned())")]
+    #[sea_orm(column_type = "custom(\"LONGTEXT\")")]
     pub name: String,
-    #[sea_orm(column_type = "Custom(\"LONGTEXT\".to_owned())")]
+    #[sea_orm(column_type = "custom(\"LONGTEXT\")")]
     pub code: String,
-    #[sea_orm(column_type = "Custom(\"LONGTEXT\".to_owned())")]
+    #[sea_orm(column_type = "custom(\"LONGTEXT\")")]
     pub department: String,
-    #[sea_orm(column_type = "Custom(\"LONGTEXT\".to_owned())")]
+    #[sea_orm(column_type = "custom(\"LONGTEXT\")")]
     pub campus_name: String,
 }
 
@@ -27,12 +27,9 @@ pub enum Relation {
     Course,
 }
 
-impl Related<super::course::Entity> for Entity {
+impl Related<course::Entity> for Entity {
     fn to() -> RelationDef {
-        super::coursegroup_course::Relation::Course.def()
-    }
-    fn via() -> Option<RelationDef> {
-        Some(super::coursegroup_course::Relation::Coursegroup.def().rev())
+        Relation::Course.def()
     }
 }
 

@@ -14,3 +14,7 @@ serde_json = "1.0"
 chrono = "0.4.23"
 # OpenAPI 文档生成
 utoipa = { version = "2.4.2", features = ["actix_extras"] }
+# 键值对缓存
+moka = { version = "0.10.0", features = ["future"] }
+# 全局变量
+lazy_static = "1.4.0"

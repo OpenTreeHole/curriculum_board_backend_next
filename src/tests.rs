@@ -2,12 +2,11 @@
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{App, http::{self}, test, web};
-    use actix_web::body::{MessageBody};
-    use actix_web::dev::{ServiceResponse};
+    use actix_web::{App, http, test, web};
+    use actix_web::body::MessageBody;
+    use actix_web::dev::ServiceResponse;
     use actix_web::test::TestRequest;
     use async_once_cell::OnceCell;
-    use lazy_static::lazy_static;
     use sea_orm::{Database, DatabaseConnection};
     use crate::{config};
     use migration::{Migrator, MigratorTrait};
