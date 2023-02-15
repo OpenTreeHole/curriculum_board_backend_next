@@ -8,11 +8,11 @@ use api::r#static;
 use actix_web::{web, App, HttpServer, middleware};
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection};
-use utoipa::OpenApi;
 use migration::{Migrator, MigratorTrait};
 
 
 mod openapi {
+    use actix_web::get;
     use utoipa::{Modify, OpenApi};
     use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
     use crate::{
@@ -67,6 +67,13 @@ mod openapi {
     curriculum_board::NewVote)),
     modifiers(& AuthorizationAddon))]
     pub(crate) struct ApiDoc;
+
+    #[get("/openapi.json")]
+    pub async fn get_openapi() -> actix_web::HttpResponse {
+        actix_web::HttpResponse::Ok()
+            .content_type("application/json")
+            .body(ApiDoc::openapi().to_pretty_json().unwrap())
+    }
 }
 
 fn config(cfg: &mut web::ServiceConfig) {
@@ -82,7 +89,8 @@ fn config(cfg: &mut web::ServiceConfig) {
         .service(curriculum_board::vote_for_review)
         .service(curriculum_board::get_reviews)
         .service(curriculum_board::get_random_reviews)
-        .service(r#static::cedict);
+        .service(r#static::cedict)
+        .service(openapi::get_openapi);
 }
 
 
@@ -90,7 +98,6 @@ fn config(cfg: &mut web::ServiceConfig) {
 async fn main() -> std::io::Result<()> {
     // 初始化 dotenv
     dotenv().ok();
-    println!("{}", openapi::ApiDoc::openapi().to_pretty_json().unwrap());
     let db: DatabaseConnection = Database::connect(env::var(constant::ENV_DB_URL).unwrap()).await.unwrap();
     Migrator::up(&db, None).await.unwrap();
     HttpServer::new(move || {
