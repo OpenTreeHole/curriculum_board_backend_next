@@ -34,7 +34,7 @@ fn course() -> TableCreateStatement {
                 .custom(Alias::new("LONGTEXT"))
                 .not_null(),
         )
-        .col(ColumnDef::new(Alias::new("credit")).float().not_null())
+        .col(ColumnDef::new(Alias::new("credit")).double().not_null())
         .col(
             ColumnDef::new(Alias::new("department"))
                 .custom(Alias::new("LONGTEXT"))
