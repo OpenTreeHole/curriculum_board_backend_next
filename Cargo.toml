@@ -13,8 +13,28 @@ anyhow = "1.0.68"
 
 # 定义子 Crate
 [workspace]
-members = [".", "entity", "migration"]
+members = [".", "entity", "migration", "cli"]
 
+[workspace.dependencies]
+# ORM 支持。本地开发别忘了装 cargo install sea-orm-cli
+sea-orm = { version = "0.11.0", features = [
+    "sqlx-sqlite",
+    "sqlx-mysql",
+    "runtime-actix-native-tls",
+    "macros",
+] }
+sea-orm-migration = "^0.11.0"
+# JSON 支持
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# 键值对缓存
+moka = { version = "0.10.0", features = ["future"] }
+# 全局变量
+lazy_static = "1.4.0"
+# OpenAPI 文档生成
+utoipa = { version = "2.4.2", features = ["actix_extras"] }
+# 日期时间支持
+chrono = "0.4.23"
 
 [dependencies]
 # 依赖子 Crate
@@ -26,23 +46,12 @@ actix-web = "4"
 actix-files = "0.6.2"
 # 静态文件的 Mime type 设置
 mime = "0.3.16"
-# ORM 支持。本地开发别忘了装 cargo install sea-orm-cli
-sea-orm = { version = "0.11.0", features = ["sqlx-sqlite", "sqlx-mysql", "runtime-actix-native-tls", "macros"] }
-# JSON 支持
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 # .env 支持
 dotenv = "0.15.0"
 # 便于少写点 if let 嵌套
 if_chain = "1.0.2"
 # 异步网络请求
 reqwest = { version = "0.11", features = ["json"] }
-# 键值对缓存
-moka = { version = "0.10.0", features = ["future"] }
-# 全局变量
-lazy_static = "1.4.0"
-# 日期时间支持
-chrono = "0.4.23"
 # 随机数
 rand = "0.8.5"
 # SHA-3 Hash
@@ -51,7 +60,14 @@ sha3 = "0.10.6"
 base16ct = { version = "0.1.1", features = ["alloc"] }
 # 支持异步初始化的 Once Cell 实现
 async-once-cell = "0.4.2"
-# OpenAPI 文档生成
-utoipa = { version = "2.4.2", features = ["actix_extras"] }
+
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+moka = { workspace = true }
+lazy_static = { workspace = true }
+utoipa = { workspace = true }
+chrono = { workspace = true }
+
 # OpenSSL 支持。因为 features = ["vendored"] 需要 Perl 编译环境，使用本就带有 openssl 的环境本地开发时，最好注释掉下行，否则会报错。
 openssl = { version = "0.10.41", features = ["vendored"] }

@@ -11,6 +11,4 @@ path = "src/lib.rs"
 [dependencies]
 entity = { path = "../entity" }
 async-std = "^1"
-
-[dependencies.sea-orm-migration]
-version = "^0.11.0"
+sea-orm-migration = { workspace = true }

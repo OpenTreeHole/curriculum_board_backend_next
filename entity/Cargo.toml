@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sea-orm = { version = "^0" }
+sea-orm = { workspace = true }
 # JSON 支持
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
 # 日期时间支持
-chrono = "0.4.23"
+chrono = { workspace = true }
 # OpenAPI 文档生成
-utoipa = { version = "2.4.2", features = ["actix_extras"] }
+utoipa = { workspace = true }
 # 键值对缓存
-moka = { version = "0.10.0", features = ["future"] }
+moka = { workspace = true }
 # 全局变量
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
