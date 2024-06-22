@@ -11,6 +11,7 @@ anyhow = "^1"
 tokio = { version = "^1", features = ["full"] }
 ctrlc = "^3"
 indicatif = "^0"
+either = "^1"
 entity = { path = "../entity" }
 sea-orm = { workspace = true }
 serde = { workspace = true }

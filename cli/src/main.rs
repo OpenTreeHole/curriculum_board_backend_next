@@ -1,6 +1,7 @@
 #![feature(result_option_inspect)]
 use anyhow::{Context, Result};
 use clap::Parser;
+use either::Either;
 use indicatif::ProgressBar;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Database, EntityTrait, IntoActiveModel, QueryFilter,
@@ -9,6 +10,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use std::{
     fs::read_to_string,
+    os::raw,
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -37,9 +39,68 @@ struct Args {
 struct RawCourse {
     name: String,
     no: String,
-    department: String,
+    teachDepartName: String,
     teachers: String,
     credits: f64,
+    maxStudent: i32,
+    campusName: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct RawJwfwCourse {
+    name: String,
+    no: String,
+    teachers: String,
+    credits: f64,
+    department: String,
+}
+
+impl RawCourse {
+    fn into_new_course(self, year: i32, semester: i32) -> entity::course::NewCourse {
+        let code = &self.no[0..self.no.len() - 3];
+        entity::course::NewCourse {
+            name: self.name,
+            code: code.to_string(),
+            department: self.teachDepartName,
+            teachers: self.teachers,
+            credit: self.credits,
+            code_id: self.no,
+            campus_name: self.campusName,
+            max_student: self.maxStudent,
+            week_hour: Default::default(),
+            year,
+            semester,
+        }
+    }
+}
+
+impl RawJwfwCourse {
+    fn into_new_course(self, year: i32, semester: i32) -> entity::course::NewCourse {
+        let code = &self.no[0..self.no.len() - 3];
+        entity::course::NewCourse {
+            name: self.name,
+            code: code.to_string(),
+            department: self.department,
+            teachers: self.teachers,
+            credit: self.credits,
+            code_id: self.no,
+            campus_name: Default::default(),
+            max_student: Default::default(),
+            week_hour: Default::default(),
+            year,
+            semester,
+        }
+    }
+}
+
+fn parse(raw_json: &String) -> Result<Either<Vec<RawCourse>, Vec<RawJwfwCourse>>> {
+    let raw_courses = serde_json::from_str::<Vec<RawCourse>>(&raw_json);
+    let raw_jwfw_courses = serde_json::from_str::<Vec<RawJwfwCourse>>(&raw_json);
+    match (raw_courses, raw_jwfw_courses) {
+        (Ok(raw_courses), _) => Ok(Either::Left(raw_courses)),
+        (_, Ok(raw_jwfw_courses)) => Ok(Either::Right(raw_jwfw_courses)),
+        (Err(e), Err(_)) => Err(e.into()),
+    }
 }
 
 static TERMINATE: AtomicBool = AtomicBool::new(false);
@@ -59,10 +120,14 @@ async fn main() -> Result<()> {
     let content = read_to_string(&args.json_file)
         .with_context(|| format!("Failed to read JSON file from `{}`", args.json_file))?;
 
-    let raw_courses: Vec<RawCourse> = serde_json::from_str(&content)
+    let raw_courses = parse(&content)
         .with_context(|| format!("Failed to parse JSON file from `{}`", args.json_file))?;
 
-    println!("Found {} courses", raw_courses.len());
+    let course_num = match &raw_courses {
+        Either::Left(raw_courses) => raw_courses.len(),
+        Either::Right(raw_jwfw_courses) => raw_jwfw_courses.len(),
+    };
+    println!("Found {} courses", course_num);
 
     println!("Connecting to database at `{}`", args.db_url);
     let db = Database::connect(&args.db_url)
@@ -76,8 +141,15 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| "Failed to start transaction")?;
 
-    let pb = ProgressBar::new(raw_courses.len() as u64);
-    for raw_course in raw_courses {
+    let pb = ProgressBar::new(course_num as u64);
+
+    let course_iter = raw_courses
+        .map_either(
+            |a| a.into_iter().map(|v| Either::Left(v)),
+            |b| b.into_iter().map(|v| Either::Right(v)),
+        )
+        .into_iter();
+    for raw_course in course_iter {
         if TERMINATE.load(Ordering::SeqCst) {
             // Ask user if he wants to commit or rollback
             let mut input = String::new();
@@ -108,25 +180,23 @@ async fn main() -> Result<()> {
             return Ok(());
         }
 
-        let len = raw_course.no.len();
+        let no = match &raw_course {
+            Either::Left(raw_course) => raw_course.no.to_owned(),
+            Either::Right(raw_course) => raw_course.no.to_owned(),
+        };
+
+        let len = no.len();
         if len <= 3 {
             println!("The no of course `{:?}` is too short", raw_course);
             continue;
         }
-        let code = &raw_course.no[0..len - 3];
 
-        let new_course = entity::course::NewCourse {
-            name: raw_course.name,
-            code: code.to_string(),
-            department: raw_course.department,
-            teachers: raw_course.teachers,
-            credit: raw_course.credits,
-            code_id: raw_course.no.clone(),
-            campus_name: Default::default(),
-            max_student: Default::default(),
-            week_hour: Default::default(),
-            year: args.year,
-            semester: args.semester,
+        
+        let code = &no[0..len - 3];
+
+        let new_course = match raw_course {
+            Either::Left(raw_course) => raw_course.into_new_course(args.year, args.semester),
+            Either::Right(raw_course) => raw_course.into_new_course(args.year, args.semester),
         };
 
         let group = entity::coursegroup::Entity::find()
@@ -152,10 +222,12 @@ async fn main() -> Result<()> {
         };
 
         let active_course = new_course.into_active_model(group_id);
-        active_course
-            .insert(&t)
-            .await
-            .with_context(|| format!("Error occurred when inserting course `{}`", raw_course.no))?;
+        active_course.insert(&t).await.with_context(|| {
+            format!(
+                "Error occurred when inserting course `{}`",
+                no
+            )
+        })?;
         pb.inc(1);
     }
     pb.finish_with_message("Committing changes");
