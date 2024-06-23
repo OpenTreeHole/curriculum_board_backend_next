@@ -4,8 +4,7 @@ use either::Either;
 use indicatif::ProgressBar;
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::read_to_string,
-    sync::atomic::{AtomicBool, Ordering},
+    fs::read_to_string, io::Write, sync::atomic::{AtomicBool, Ordering}
 };
 
 /// A command line tool for importing JSON files into curriculum database.
@@ -175,6 +174,7 @@ async fn main() -> Result<()> {
         if TERMINATE.load(Ordering::SeqCst) {
             let mut input = String::new();
             print!("Do you want to stop the program? (y/N) ");
+            let _ = std::io::stdout().flush();
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read input");
@@ -207,16 +207,17 @@ async fn main() -> Result<()> {
             .json(&new_course)
             .send()
             .await?;
-
+        
+        pb.inc(1);
+        
         if !resq.status().is_success() {
             println!(
                 "Failed to import course `{:?}`: {}",
                 new_course,
                 resq.text().await?
             );
-            continue;
         }
-        pb.inc(1);
+        
     }
     pb.finish();
     println!("Congratulations! All courses have been imported successfully!");
