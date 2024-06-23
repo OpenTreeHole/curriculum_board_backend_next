@@ -13,7 +13,8 @@ use std::{
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The RESTful API URL of the server, NOT the database URL itself.
-    /// e.g. `http://localhost:8080/courses`
+    /// 
+    /// E.g. `http://localhost:8080/courses`
     #[arg(short, long)]
     db_url: String,
 
@@ -26,12 +27,20 @@ struct Args {
     json_file: String,
 
     /// Which year to import
+    /// 
+    /// E.g. `2021` means 2021-2022 academic year.
     #[arg(short, long)]
     year: i32,
 
     /// Which semester to import
+    /// 
+    /// E.g. `1` means the autumn semester, `2` means the (next year's) winter holiday, `3` means the (next year's) spring semester, `4` means the (next year's) summer holiday.
     #[arg(short, long)]
     semester: i32,
+
+    /// Proxy server URL, if needed
+    #[arg(short, long)]
+    proxy: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -43,6 +52,7 @@ struct RawCourse {
     credits: f64,
     maxStudent: i32,
     campusName: String,
+    weekHour: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -81,7 +91,7 @@ impl RawCourse {
             code_id: self.no,
             campus_name: self.campusName,
             max_student: self.maxStudent,
-            week_hour: Default::default(),
+            week_hour: self.weekHour,
             year,
             semester,
         }
@@ -152,11 +162,19 @@ async fn main() -> Result<()> {
         )
         .into_iter();
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder();
+    let client = if let Some(proxy) = args.proxy {
+        client
+            .proxy(reqwest::Proxy::all(proxy).expect("Failed to set proxy"))
+            .build()?
+    } else {
+        client.build()?
+    };
+
     for raw_course in course_iter {
         if TERMINATE.load(Ordering::SeqCst) {
             let mut input = String::new();
-            println!("Do you want to stop the program? (y/N)");
+            print!("Do you want to stop the program? (y/N) ");
             std::io::stdin()
                 .read_line(&mut input)
                 .expect("Failed to read input");
@@ -181,7 +199,7 @@ async fn main() -> Result<()> {
         let new_course = match raw_course {
             Either::Left(raw_course) => raw_course.into_new_course(args.year, args.semester),
             Either::Right(raw_course) => raw_course.into_new_course(args.year, args.semester),
-        };
+        }; 
 
         let resq = client
             .post(&args.db_url)

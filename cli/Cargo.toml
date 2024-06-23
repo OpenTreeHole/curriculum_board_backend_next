@@ -12,6 +12,6 @@ tokio = { version = "^1", features = ["full"] }
 ctrlc = "^3"
 indicatif = "^0"
 either = "^1"
-reqwest = { version = "^0", features = ["json"] }
+reqwest = { version = "^0", features = ["json", "socks"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
