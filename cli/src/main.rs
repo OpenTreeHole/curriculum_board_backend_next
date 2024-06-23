@@ -1,16 +1,10 @@
-#![feature(result_option_inspect)]
 use anyhow::{Context, Result};
 use clap::Parser;
 use either::Either;
 use indicatif::ProgressBar;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Database, EntityTrait, IntoActiveModel, QueryFilter,
-    TransactionTrait,
-};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::read_to_string,
-    os::raw,
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -18,9 +12,14 @@ use std::{
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// The database URL
+    /// The RESTful API URL of the server, NOT the database URL itself.
+    /// e.g. `http://localhost:8080/courses`
     #[arg(short, long)]
     db_url: String,
+
+    /// The auth token for the RESTful API, without `Bearer ` prefix.
+    #[arg(short, long)]
+    auth_token: String,
 
     /// The JSON file to import
     #[arg(short, long)]
@@ -55,10 +54,25 @@ struct RawJwfwCourse {
     department: String,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct NewCourse {
+    campus_name: String,
+    code: String,
+    code_id: String,
+    credit: f64,
+    department: String,
+    max_student: i32,
+    name: String,
+    semester: i32,
+    teachers: String,
+    week_hour: i32,
+    year: i32,
+}
+
 impl RawCourse {
-    fn into_new_course(self, year: i32, semester: i32) -> entity::course::NewCourse {
+    fn into_new_course(self, year: i32, semester: i32) -> NewCourse {
         let code = &self.no[0..self.no.len() - 3];
-        entity::course::NewCourse {
+        NewCourse {
             name: self.name,
             code: code.to_string(),
             department: self.teachDepartName,
@@ -75,9 +89,9 @@ impl RawCourse {
 }
 
 impl RawJwfwCourse {
-    fn into_new_course(self, year: i32, semester: i32) -> entity::course::NewCourse {
+    fn into_new_course(self, year: i32, semester: i32) -> NewCourse {
         let code = &self.no[0..self.no.len() - 3];
-        entity::course::NewCourse {
+        NewCourse {
             name: self.name,
             code: code.to_string(),
             department: self.department,
@@ -129,18 +143,6 @@ async fn main() -> Result<()> {
     };
     println!("Found {} courses", course_num);
 
-    println!("Connecting to database at `{}`", args.db_url);
-    let db = Database::connect(&args.db_url)
-        .await
-        .with_context(|| format!("Failed to connect to database at `{}`", args.db_url))?;
-
-    println!("Importing courses into database");
-    // start transaction
-    let t = db
-        .begin()
-        .await
-        .with_context(|| "Failed to start transaction")?;
-
     let pb = ProgressBar::new(course_num as u64);
 
     let course_iter = raw_courses
@@ -149,35 +151,20 @@ async fn main() -> Result<()> {
             |b| b.into_iter().map(|v| Either::Right(v)),
         )
         .into_iter();
+
+    let client = reqwest::Client::new();
     for raw_course in course_iter {
         if TERMINATE.load(Ordering::SeqCst) {
-            // Ask user if he wants to commit or rollback
             let mut input = String::new();
-            println!("Commit or rollback the changes? (c/r)");
+            println!("Do you want to stop the program? (y/N)");
             std::io::stdin()
                 .read_line(&mut input)
-                .expect("Failed to read line");
-            match input.trim() {
-                "c" => {
-                    t.commit()
-                        .await
-                        .with_context(|| "Failed to commit transaction")?;
-                    println!("Changes committed");
-                }
-                "r" => {
-                    t.rollback()
-                        .await
-                        .with_context(|| "Failed to rollback transaction")?;
-                    println!("Changes rolled back");
-                }
-                _ => {
-                    println!("Invalid input, changes rolled back");
-                    t.rollback()
-                        .await
-                        .with_context(|| "Failed to rollback transaction")?;
-                }
+                .expect("Failed to read input");
+            if input.trim().to_lowercase() == "y" {
+                return Ok(());
+            } else {
+                TERMINATE.store(false, Ordering::SeqCst);
             }
-            return Ok(());
         }
 
         let no = match &raw_course {
@@ -191,49 +178,29 @@ async fn main() -> Result<()> {
             continue;
         }
 
-        
-        let code = &no[0..len - 3];
-
         let new_course = match raw_course {
             Either::Left(raw_course) => raw_course.into_new_course(args.year, args.semester),
             Either::Right(raw_course) => raw_course.into_new_course(args.year, args.semester),
         };
 
-        let group = entity::coursegroup::Entity::find()
-            .filter(entity::coursegroup::Column::Code.eq(code))
-            .one(&t)
-            .await
-            .with_context(|| format!("Error occurred when finding course group `{}`", code))?;
-        let group_id = match group {
-            None => {
-                // 创建新的 CourseGroup
-                let new_course_group: entity::coursegroup::NewCourseGroup =
-                    new_course.clone().into();
-                let new_course_group = new_course_group
-                    .into_active_model()
-                    .insert(&t)
-                    .await
-                    .with_context(|| {
-                        format!("Error occurred when inserting course group `{}`", code)
-                    })?;
-                new_course_group.id
-            }
-            Some(group) => group.id,
-        };
+        let resq = client
+            .post(&args.db_url)
+            .bearer_auth(&args.auth_token)
+            .json(&new_course)
+            .send()
+            .await?;
 
-        let active_course = new_course.into_active_model(group_id);
-        active_course.insert(&t).await.with_context(|| {
-            format!(
-                "Error occurred when inserting course `{}`",
-                no
-            )
-        })?;
+        if !resq.status().is_success() {
+            println!(
+                "Failed to import course `{:?}`: {}",
+                new_course,
+                resq.text().await?
+            );
+            continue;
+        }
         pb.inc(1);
     }
-    pb.finish_with_message("Committing changes");
-    t.commit()
-        .await
-        .with_context(|| "Failed to commit transaction")?;
+    pb.finish();
     println!("Congratulations! All courses have been imported successfully!");
     Ok(())
 }

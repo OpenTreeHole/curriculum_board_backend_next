@@ -12,7 +12,6 @@ tokio = { version = "^1", features = ["full"] }
 ctrlc = "^3"
 indicatif = "^0"
 either = "^1"
-entity = { path = "../entity" }
-sea-orm = { workspace = true }
+reqwest = { version = "^0", features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
