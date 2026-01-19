@@ -80,7 +80,7 @@ struct NewCourse {
 
 impl RawCourse {
     fn into_new_course(self, year: i32, semester: i32) -> NewCourse {
-        let code = &self.no[0..self.no.len() - 3];
+        let code = self.no.rfind('.').map(|pos| &self.no[0..pos]).unwrap_or(&self.no);
         NewCourse {
             name: self.name,
             code: code.to_string(),
@@ -99,7 +99,7 @@ impl RawCourse {
 
 impl RawJwfwCourse {
     fn into_new_course(self, year: i32, semester: i32) -> NewCourse {
-        let code = &self.no[0..self.no.len() - 3];
+        let code = self.no.rfind('.').map(|pos| &self.no[0..pos]).unwrap_or(&self.no);
         NewCourse {
             name: self.name,
             code: code.to_string(),
